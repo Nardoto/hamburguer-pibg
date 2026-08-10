@@ -92,6 +92,12 @@ export function saleUrl(baseUrl, publicToken) {
   return url.toString();
 }
 
+export function saleDateLabel(eventDate) {
+  if (!eventDate) return 'Data a confirmar';
+  const label = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date(`${eventDate}T12:00:00`));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function setKitchenStatus(order, kitchenStatus) {
   return { ...order, kitchenStatus };
 }
@@ -138,8 +144,8 @@ if (typeof document !== 'undefined') {
     }
     return `<div class="app-shell"><section class="page">
       <header class="page-head"><div class="brand">HAMBÚRGUER <span>PIBG</span></div><button class="menu-button" data-action="open-team" aria-label="Abrir painel da equipe"></button></header>
-      <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>VENDA DE DOMINGO</span><span class="pill">ESTOQUE AO VIVO</span></div><div class="hero-caption"><p>COMBO ARTESANAL</p><h1>FOME DE<br>VERDADE.<small>COMPRA SEM FILA.</small></h1></div></div>
-      <div class="content"><div class="product-copy"><div><h2>O combo que salva seu domingo.</h2><p>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</p></div><div class="price">R$ 25</div></div>
+      <div class="hero-image"><div class="hero-topline"><span class="pill date-pill"><i class="live-dot"></i>RETIRADA · ${saleDateLabel(state.sale.event_date).toUpperCase()}</span><span class="pill">ESTOQUE AO VIVO</span></div><div class="hero-caption"><p>COMBO ARTESANAL</p><h1>FOME DE<br>VERDADE.<small>COMPRA SEM FILA.</small></h1></div></div>
+      <div class="content"><div class="product-copy"><div><h2>O combo que salva seu domingo.</h2><p class="pickup-day">Retirada após o culto · ${saleDateLabel(state.sale.event_date)}</p><p>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</p></div><div class="price">R$ 25</div></div>
       <div class="ingredient-tags"><span>140 g</span><span>Bacon crocante</span><span>Muçarela</span><span>Refri 200 ml</span></div>
       <div class="stock-note"><strong>${availableStock()} combos disponíveis</strong><small>Estoque atualizado em tempo real</small></div>
       <span class="section-label">QUANTOS COMBOS VOCÊ QUER?</span><div class="quantity"><button data-action="quantity" data-delta="-1" aria-label="Diminuir quantidade">−</button><output>${state.quantity}</output><button data-action="quantity" data-delta="1" aria-label="Aumentar quantidade">+</button></div></div>
@@ -173,7 +179,7 @@ if (typeof document !== 'undefined') {
 
   function renderConfirmation() {
     const order = state.activeOrder;
-    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este QR Code para a equipe.</p><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>A equipe escaneia e confirma sua retirada.</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'home', 'Voltar ao cardápio')}</section></div>`;
+    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este QR Code para a equipe.</p><div class="pickup-date">RETIRADA · ${saleDateLabel(state.sale?.event_date).toUpperCase()}</div><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>A equipe escaneia e confirma sua retirada.</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'home', 'Voltar ao cardápio')}</section></div>`;
   }
 
   function renderTeamLogin() {
@@ -355,18 +361,21 @@ if (typeof document !== 'undefined') {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
     pdf.text(`Celular: ${order.customer.phone}`, 15, 88);
+    pdf.setTextColor(118, 80, 66);
+    pdf.setFontSize(8);
+    pdf.text(`Retirada: ${saleDateLabel(state.sale?.event_date)}`, 15, 94);
     pdf.setFillColor(255, 194, 71);
-    pdf.roundedRect(15, 97, pageWidth - 30, 38, 4, 4, 'F');
+    pdf.roundedRect(15, 99, pageWidth - 30, 38, 4, 4, 'F');
     pdf.setTextColor(41, 23, 18);
     pdf.setFontSize(9);
-    pdf.text('CODIGO DE RETIRADA', pageWidth / 2, 109, { align: 'center' });
+    pdf.text('CODIGO DE RETIRADA', pageWidth / 2, 111, { align: 'center' });
     pdf.setFontSize(28);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(order.code, pageWidth / 2, 125, { align: 'center' });
+    pdf.text(order.code, pageWidth / 2, 127, { align: 'center' });
     pdf.setTextColor(41, 23, 18);
     pdf.setFontSize(11);
-    pdf.text('DETALHES DO PEDIDO', 15, 151);
-    let y = 160;
+    pdf.text('DETALHES DO PEDIDO', 15, 153);
+    let y = 162;
     ticketLines(order).forEach((line) => {
       const lines = pdf.splitTextToSize(line, pageWidth - 30);
       if (y + lines.length * 6 + 3 > pageHeight - 25) {
