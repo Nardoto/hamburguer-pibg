@@ -96,8 +96,9 @@ export function setKitchenStatus(order, kitchenStatus) {
 }
 
 if (typeof document !== 'undefined') {
+  const urlParams = new URLSearchParams(window.location.search);
   const state = {
-    screen: 'home',
+    screen: urlParams.get('painel') === 'equipe' ? 'team' : 'home',
     quantity: 1,
     combos: [],
     activeCombo: 0,
@@ -111,7 +112,7 @@ if (typeof document !== 'undefined') {
     qrStream: null,
     qrScanFrame: null,
     sale: null,
-    publicToken: new URLSearchParams(window.location.search).get('v'),
+    publicToken: urlParams.get('v'),
   };
 
   const app = document.querySelector('#app');
