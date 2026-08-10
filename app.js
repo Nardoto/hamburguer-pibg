@@ -108,6 +108,10 @@ export function serviceModeLabel(serviceMode) {
   return serviceMode === 'takeaway' ? 'Para viagem' : 'Comer no local';
 }
 
+export function deliveryFeedback(order) {
+  return `${order.code} entregue · ${order.customer.name} · ${serviceModeLabel(order.serviceMode)}`;
+}
+
 export function setKitchenStatus(order, kitchenStatus) {
   return { ...order, kitchenStatus };
 }
@@ -129,6 +133,8 @@ if (typeof document !== 'undefined') {
     teamSearch: '',
     scanning: false,
     qrScanner: null,
+    realtimeChannel: null,
+    deliveryNotice: null,
     sale: null,
     publicToken: urlParams.get('v'),
   };
@@ -194,7 +200,7 @@ if (typeof document !== 'undefined') {
     const order = state.activeOrder;
     const returnTo = state.teamAuthorized ? 'open-team' : 'home';
     const returnLabel = state.teamAuthorized ? 'Voltar à recepção' : 'Voltar ao cardápio';
-    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este QR Code para a equipe.</p><div class="pickup-date">RETIRADA · ${saleDateLabel(state.sale?.event_date).toUpperCase()}</div><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span><em>${serviceModeLabel(order.serviceMode)}</em></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>A equipe escaneia e confirma sua retirada.</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), returnTo, returnLabel)}</section></div>`;
+    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este QR Code para a equipe.</p><div class="pickup-date">RETIRADA · ${saleDateLabel(state.sale?.event_date).toUpperCase()}</div><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span><em>${serviceModeLabel(order.serviceMode)}</em></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>A equipe escaneia e confirma sua retirada.</span></div><div class="pdf-callout"><b>GUARDE SEU COMPROVANTE</b><span>Baixe agora o PDF com QR Code, nome e detalhes do pedido.</span><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button></div><p>Se fechar esta tela, você pode recuperar o comprovante usando o nome e celular cadastrados.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), returnTo, returnLabel)}</section></div>`;
   }
 
   function renderRecovery() {
@@ -212,11 +218,12 @@ if (typeof document !== 'undefined') {
     const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'} · ${serviceModeLabel(order.serviceMode)}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div><div class="order-actions"><button class="ticket-button" data-action="show-ticket" data-id="${order.id}">Mostrar QR</button>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div></div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
     const sold = state.sale?.confirmed_quantity ?? 0;
     const scanner = state.scanning ? `<div class="scan-panel"><div id="qr-reader"></div><p>Aponte a câmera para o QR Code do comprovante.</p><button class="secondary-button" data-action="stop-scan">Cancelar leitura</button></div>` : '';
+    const deliveryNotice = state.deliveryNotice ? `<div class="delivery-notice"><span>ENTREGA CONFIRMADA</span><strong>${escapeHtml(state.deliveryNotice.code)}</strong><p>${escapeHtml(state.deliveryNotice.customer.name)} · ${escapeHtml(serviceModeLabel(state.deliveryNotice.serviceMode))}</p></div>` : '';
     const publicLink = state.sale?.public_token ? saleUrl(window.location.href, state.sale.public_token) : '';
     const createSunday = `<form id="start-sale" class="team-form"><label class="field"><span>NOVO DOMINGO</span><input id="new-sale-name" value="Hambúrguer PIBG — próximo domingo" maxlength="100"></label><label class="field"><span>DATA DA VENDA</span><input id="new-sale-date" type="date" required></label><label class="field"><span>QUANTIDADE INICIAL</span><input id="new-sale-stock" type="number" min="1" value="150"></label><button class="primary-button" type="submit">Criar novo domingo</button><p class="error" id="new-sale-error" hidden></p></form>`;
     const activeAdmin = state.sale ? `<div class="current-sale-card"><b>DOMINGO EM ANDAMENTO</b><strong>${escapeHtml(state.sale.name)}</strong><span>${saleDateLabel(state.sale.event_date)}</span><button class="danger-button" data-action="end-sale">Encerrar domingo atual</button><small>Faça isso somente após terminar as vendas e retiradas. Depois, o link público deixa de aceitar pedidos.</small></div><form id="stock-settings" class="team-form admin-divider"><label class="field"><span>QUANTIDADE TOTAL DE COMBOS</span><input id="stock-total" type="number" min="0" value="${state.sale.stock_total}"><small>Não pode ser menor que os pedidos já confirmados ou reservados.</small></label><button class="secondary-button" type="submit">Salvar quantidade</button><p class="error" id="stock-error" hidden></p></form><div class="sale-link-card"><b>LINK PÚBLICO DESTE DOMINGO</b><input readonly value="${escapeHtml(publicLink)}" aria-label="Link público da venda"><div id="sale-link-qr" aria-label="QR Code para abrir esta venda"></div><button class="secondary-button" data-action="copy-sale-link">Copiar link</button></div>` : createSunday;
     const adminSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span>${activeAdmin}</div>` : '';
-    const operations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span><button class="scan-button" data-action="start-scan">Ler QR Code e entregar</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Crie um novo domingo na administração para liberar compra, recepção e cozinha.</p></div>`;
+    const operations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span>${deliveryNotice}<button class="scan-button" data-action="start-scan">Ler QR Code e entregar</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Crie um novo domingo na administração para liberar compra, recepção e cozinha.</p></div>`;
     return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button>${state.sale ? '<button class="kitchen-button" data-action="open-kitchen">Cozinha</button>' : ''}</div><h1>Recepção<br>PIBG.</h1><p>Leia o QR Code do cliente: a retirada é registrada automaticamente.</p></header>${operations}${adminSettings}</section></div>`;
   }
 
@@ -294,10 +301,16 @@ if (typeof document !== 'undefined') {
     }
   }
 
-  function subscribeToChanges() {
-    supabase.channel('hamburguer-pibg-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_events' }, () => refreshSale(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => refreshTeamOrders(true))
+  async function refreshLiveData() {
+    await Promise.all([refreshSale(), refreshTeamOrders()]);
+    if (['home', 'team', 'kitchen'].includes(state.screen)) render();
+  }
+
+  async function subscribeToChanges() {
+    if (state.realtimeChannel) await supabase.removeChannel(state.realtimeChannel);
+    state.realtimeChannel = supabase.channel('hamburguer-pibg-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_events' }, refreshLiveData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refreshLiveData)
       .subscribe();
   }
 
@@ -345,8 +358,8 @@ if (typeof document !== 'undefined') {
     try {
       await withdrawOrder(supabase, order.id);
       await refreshTeamOrders();
+      state.deliveryNotice = order;
       render();
-      window.alert(`Pedido ${code} entregue. ${serviceModeLabel(order.serviceMode)}.`);
     } catch (withdrawError) {
       render();
       window.alert(withdrawError.message);
@@ -522,7 +535,7 @@ if (typeof document !== 'undefined') {
           window.alert(endError.message);
         }
       }
-      if (action === 'start-scan') { state.scanning = true; render(); await startQrScanner(); }
+      if (action === 'start-scan') { state.deliveryNotice = null; state.scanning = true; render(); await startQrScanner(); }
       if (action === 'stop-scan') { stopQrScanner(); render(); }
       if (action === 'download-ticket') { downloadTicket(state.activeOrder); }
       if (action === 'withdraw') {
@@ -545,6 +558,7 @@ if (typeof document !== 'undefined') {
         state.publicToken = state.sale.public_token;
         state.orders = await fetchTeamOrders(supabase);
         state.teamAuthorized = true;
+        await subscribeToChanges();
         state.screen = 'team';
         render();
       } catch (loginError) {
@@ -644,5 +658,5 @@ if (typeof document !== 'undefined') {
 
   render();
   refreshSale(true);
-  subscribeToChanges();
+  void subscribeToChanges();
 }

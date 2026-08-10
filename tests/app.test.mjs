@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { calculateTotal, canCreateSunday, createCombo, customizeCombo, hasKitchenAdjustment, isAdminRole, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
+import { calculateTotal, canCreateSunday, createCombo, customizeCombo, deliveryFeedback, hasKitchenAdjustment, isAdminRole, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -42,6 +42,7 @@ assert.equal(canCreateSunday(null), true);
 assert.equal(canCreateSunday({ id: 'domingo-atual' }), false);
 assert.equal(serviceModeLabel('local'), 'Comer no local');
 assert.equal(serviceModeLabel('takeaway'), 'Para viagem');
+assert.equal(deliveryFeedback({ code: 'PIBG-0025', customer: { name: 'Ana' }, serviceMode: 'takeaway' }), 'PIBG-0025 entregue · Ana · Para viagem');
 
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' }, serviceMode: 'takeaway',
