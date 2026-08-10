@@ -18,26 +18,19 @@ O link do domingo anterior passa a mostrar “Venda encerrada” e não permite 
 
 ## Criar os acessos privados
 
-No painel do Supabase, abra **Authentication > Users > Add user** e crie:
+No painel do Supabase, abra **Authentication > Users > Add user** e crie uma única conta compartilhada, por exemplo `equipe@pibg.com`. Ela será usada pelos voluntários na recepção, cozinha e para abrir cada novo domingo.
 
-- Uma conta compartilhada, por exemplo `equipe@pibg.com`, usada por recepção e cozinha.
-- Sua conta pessoal de administrador, com senha forte e não compartilhada.
-
-Depois, abra **SQL Editor**, troque os dois e-mails e execute:
+Depois, abra **SQL Editor**, troque o e-mail e execute:
 
 ```sql
 insert into public.team_members (user_id, role)
-select id,
-  case
-    when email = 'equipe@pibg.com' then 'team'
-    when email = 'administrador@igreja.com' then 'admin'
-  end
+select id, 'admin'
 from auth.users
-where email in ('equipe@pibg.com', 'administrador@igreja.com')
+where email = 'equipe@pibg.com'
 on conflict (user_id) do update set role = excluded.role;
 ```
 
-Quem entra com a conta compartilhada pode registrar venda presencial, ler o QR Code para entregar pedidos e abrir a cozinha. A conta de administrador também pode alterar a quantidade total de combos da venda ativa.
+Quem entra com essa conta compartilhada pode registrar venda presencial, ler o QR Code para entregar pedidos, abrir a cozinha, alterar a quantidade de combos e criar o próximo domingo.
 
 Em produção, a câmera do celular exige que o site esteja em HTTPS; Vercel já entrega isso automaticamente no domínio público.
 
