@@ -121,3 +121,8 @@ export async function createSaleEvent(client, { name, eventDate, stockTotal }) {
   if (error) throw operationError(error, 'Não foi possível criar o novo domingo.');
   return data?.[0];
 }
+
+export async function endSaleEvent(client) {
+  const { error } = await client.rpc('end_active_sale_event');
+  if (error) throw operationError(error, 'Não foi possível encerrar o domingo atual.');
+}

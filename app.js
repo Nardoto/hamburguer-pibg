@@ -6,6 +6,7 @@ import {
   fetchActiveSale,
   fetchTeamRole,
   fetchTeamSale,
+  endSaleEvent,
   fetchTeamOrders,
   reserveOrder,
   signInTeam,
@@ -96,6 +97,10 @@ export function saleDateLabel(eventDate) {
   if (!eventDate) return 'Data a confirmar';
   const label = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date(`${eventDate}T12:00:00`));
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+export function canCreateSunday(activeSale) {
+  return !activeSale;
 }
 
 export function setKitchenStatus(order, kitchenStatus) {
@@ -190,11 +195,14 @@ if (typeof document !== 'undefined') {
     const normalizedSearch = state.teamSearch.trim().toLowerCase();
     const orders = state.orders.filter((order) => !normalizedSearch || `${order.code} ${order.customer.name} ${order.customer.phone}`.toLowerCase().includes(normalizedSearch));
     const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
-    const sold = state.sale.confirmed_quantity;
+    const sold = state.sale?.confirmed_quantity ?? 0;
     const scanner = state.scanning ? `<div class="scan-panel"><div id="qr-reader"></div><p>Aponte a câmera para o QR Code do comprovante.</p><button class="secondary-button" data-action="stop-scan">Cancelar leitura</button></div>` : '';
     const publicLink = state.sale?.public_token ? saleUrl(window.location.href, state.sale.public_token) : '';
-    const stockSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span><form id="start-sale" class="team-form"><label class="field"><span>NOVO DOMINGO</span><input id="new-sale-name" value="Hambúrguer PIBG — próximo domingo" maxlength="100"><small>Criar uma nova venda encerra o link e os pedidos do domingo anterior.</small></label><label class="field"><span>DATA DA VENDA</span><input id="new-sale-date" type="date" required></label><label class="field"><span>QUANTIDADE INICIAL</span><input id="new-sale-stock" type="number" min="1" value="150"></label><button class="primary-button" type="submit">Criar novo domingo</button><p class="error" id="new-sale-error" hidden></p></form>${state.sale ? `<form id="stock-settings" class="team-form admin-divider"><label class="field"><span>QUANTIDADE TOTAL DE COMBOS</span><input id="stock-total" type="number" min="0" value="${state.sale.stock_total}"><small>Não pode ser menor que os pedidos já confirmados ou reservados.</small></label><button class="secondary-button" type="submit">Salvar quantidade</button><p class="error" id="stock-error" hidden></p></form><div class="sale-link-card"><b>LINK PÚBLICO DESTE DOMINGO</b><input readonly value="${escapeHtml(publicLink)}" aria-label="Link público da venda"><div id="sale-link-qr" aria-label="QR Code para abrir esta venda"></div><button class="secondary-button" data-action="copy-sale-link">Copiar link</button></div>` : ''}</div>` : '';
-    return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><button class="kitchen-button" data-action="open-kitchen">Cozinha</button></div><h1>Recepção<br>PIBG.</h1><p>Leia o QR Code do cliente, confira o pedido e marque a retirada.</p></header><div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span><button class="scan-button" data-action="start-scan">Ler QR Code do cliente</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div>${stockSettings}<div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
+    const createSunday = `<form id="start-sale" class="team-form"><label class="field"><span>NOVO DOMINGO</span><input id="new-sale-name" value="Hambúrguer PIBG — próximo domingo" maxlength="100"></label><label class="field"><span>DATA DA VENDA</span><input id="new-sale-date" type="date" required></label><label class="field"><span>QUANTIDADE INICIAL</span><input id="new-sale-stock" type="number" min="1" value="150"></label><button class="primary-button" type="submit">Criar novo domingo</button><p class="error" id="new-sale-error" hidden></p></form>`;
+    const activeAdmin = state.sale ? `<div class="current-sale-card"><b>DOMINGO EM ANDAMENTO</b><strong>${escapeHtml(state.sale.name)}</strong><span>${saleDateLabel(state.sale.event_date)}</span><button class="danger-button" data-action="end-sale">Encerrar domingo atual</button><small>Faça isso somente após terminar as vendas e retiradas. Depois, o link público deixa de aceitar pedidos.</small></div><form id="stock-settings" class="team-form admin-divider"><label class="field"><span>QUANTIDADE TOTAL DE COMBOS</span><input id="stock-total" type="number" min="0" value="${state.sale.stock_total}"><small>Não pode ser menor que os pedidos já confirmados ou reservados.</small></label><button class="secondary-button" type="submit">Salvar quantidade</button><p class="error" id="stock-error" hidden></p></form><div class="sale-link-card"><b>LINK PÚBLICO DESTE DOMINGO</b><input readonly value="${escapeHtml(publicLink)}" aria-label="Link público da venda"><div id="sale-link-qr" aria-label="QR Code para abrir esta venda"></div><button class="secondary-button" data-action="copy-sale-link">Copiar link</button></div>` : createSunday;
+    const adminSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span>${activeAdmin}</div>` : '';
+    const operations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span><button class="scan-button" data-action="start-scan">Ler QR Code do cliente</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Crie um novo domingo na administração para liberar compra, recepção e cozinha.</p></div>`;
+    return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button>${state.sale ? '<button class="kitchen-button" data-action="open-kitchen">Cozinha</button>' : ''}</div><h1>Recepção<br>PIBG.</h1><p>Leia o QR Code do cliente, confira o pedido e marque a retirada.</p></header>${operations}${adminSettings}</section></div>`;
   }
 
   function renderKitchenOrder(order) {
@@ -448,6 +456,20 @@ if (typeof document !== 'undefined') {
       }
       if (action === 'open-team') { state.screen = 'team'; render(); }
       if (action === 'open-kitchen') { stopQrScanner(); await refreshTeamOrders(); state.screen = 'kitchen'; render(); }
+      if (action === 'end-sale') {
+        if (!window.confirm('Encerrar este domingo? O link público deixará de aceitar pedidos e só então o próximo domingo poderá ser criado.')) return;
+        try {
+          stopQrScanner();
+          await endSaleEvent(supabase);
+          state.sale = null;
+          state.publicToken = null;
+          state.orders = [];
+          state.teamSearch = '';
+          render();
+        } catch (endError) {
+          window.alert(endError.message);
+        }
+      }
       if (action === 'start-scan') { state.scanning = true; render(); await startQrScanner(); }
       if (action === 'stop-scan') { stopQrScanner(); render(); }
       if (action === 'download-ticket') { downloadTicket(state.activeOrder); }
@@ -526,7 +548,8 @@ if (typeof document !== 'undefined') {
       const stockTotal = Number(document.querySelector('#new-sale-stock').value);
       const error = document.querySelector('#new-sale-error');
       if (!name || !eventDate || !Number.isInteger(stockTotal) || stockTotal < 1) { error.hidden = false; error.textContent = 'Informe nome, data e uma quantidade inicial válida.'; return; }
-      if (!window.confirm('Criar este novo domingo? O link da venda anterior será encerrado.')) return;
+      if (!canCreateSunday(state.sale)) { error.hidden = false; error.textContent = 'Encerre o domingo atual antes de criar outro.'; return; }
+      if (!window.confirm('Criar este novo domingo com esta data e quantidade?')) return;
       try {
         state.sale = await createSaleEvent(supabase, { name, eventDate, stockTotal });
         state.publicToken = state.sale.public_token;

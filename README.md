@@ -8,13 +8,12 @@ O banco guarda a venda ativa, reservas, pedidos confirmados, retirada e etapas d
 
 ## Novo domingo, novo link
 
-No seu painel de administrador, preencha **Novo domingo** com a data e a quantidade inicial. Ao confirmar, o sistema:
+Quando o domingo terminar, use **Encerrar domingo atual** no painel. Só depois disso o formulário **Novo domingo** aparece. Ao criar o novo domingo, o sistema:
 
-1. Encerra a venda anterior e expira reservas que não foram pagas.
-2. Cria uma venda nova, com estoque e pedidos próprios.
-3. Mostra um link e QR Code novos para enviar no grupo e colocar na igreja.
+1. Cria uma venda nova, com estoque e pedidos próprios.
+2. Mostra um link e QR Code novos para enviar no grupo e colocar na igreja.
 
-O link do domingo anterior passa a mostrar “Venda encerrada” e não permite novas compras. A recepção e a cozinha passam a ver somente os pedidos do domingo atual.
+Enquanto houver domingo ativo, o banco bloqueia a criação de outro. Ao encerrar, reservas que não foram pagas expiram, o link anterior mostra “Venda encerrada” e a recepção/cozinha param de exibir aquela venda.
 
 ## Criar os acessos privados
 
