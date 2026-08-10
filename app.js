@@ -1,6 +1,5 @@
 export const INGREDIENTS = ['Alface', 'Tomate', 'Bacon', 'Barbecue', 'Queijo muçarela'];
 export const COMBO_PRICE = 25;
-export const COMPLETE_COMBO_DETAILS = 'bife 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante 200 ml';
 
 let comboSequence = 0;
 
@@ -41,12 +40,22 @@ export function ticketLines(order) {
     const details = [];
     if (combo.removed.length) details.push(`Sem ${combo.removed.join(', ')}`);
     if (combo.note) details.push(combo.note);
-    return `Combo ${index + 1}: ${details.length ? details.join(' · ') : `Completo - ${COMPLETE_COMBO_DETAILS}`}`;
+    return `Combo ${index + 1}: ${details.length ? details.join(' · ') : 'Completo'}`;
   });
 }
 
 export function ticketHeader(order) {
   return `RETIRADA DE ${order.customer.name.trim().toUpperCase()}`;
+}
+
+export function kitchenDetails(order) {
+  if (order.kitchenNote?.trim()) return order.kitchenNote.trim();
+  const adjustedCombos = ticketLines(order).filter((line) => !line.endsWith(': Completo'));
+  return adjustedCombos.length ? adjustedCombos.join(' | ') : `${order.combos.length} ${order.combos.length === 1 ? 'combo completo' : 'combos completos'}`;
+}
+
+export function setKitchenStatus(order, kitchenStatus) {
+  return { ...order, kitchenStatus };
 }
 
 if (typeof document !== 'undefined') {
@@ -128,13 +137,36 @@ if (typeof document !== 'undefined') {
   function renderTeam() {
     const normalizedSearch = state.teamSearch.trim().toLowerCase();
     const orders = state.orders.filter((order) => !normalizedSearch || `${order.code} ${order.customer.name} ${order.customer.phone}`.toLowerCase().includes(normalizedSearch));
-    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${order.combos.some((combo) => combo.mode === 'customized') ? '<br>Pedido com ajustes: confira antes de entregar.' : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-code="${order.code}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
+    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${order.combos.some((combo) => combo.mode === 'customized') || order.kitchenNote ? '<br>${escapeHtml(kitchenDetails(order))}' : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-code="${order.code}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
     const sold = state.orders.reduce((total, order) => total + order.combos.length, 0);
-    return `<div class="app-shell"><section class="page"><header class="team-top"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><h1>Painel<br>administrativo.</h1><p>Vendas on-line e presenciais no mesmo lugar.</p></header><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><button class="primary-button" type="submit">Registrar pagamento e pedido</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
+    return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><button class="kitchen-button" data-action="open-kitchen">Cozinha</button></div><h1>Painel<br>administrativo.</h1><p>Vendas on-line e presenciais no mesmo lugar.</p></header><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DETALHES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 2 completos e 1 sem tomate."></textarea><small>Opcional. Se ficar em branco, o pedido entra como combos completos.</small></label><button class="primary-button" type="submit">Registrar pagamento e pedido</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
+  }
+
+  function renderKitchenOrder(order, status) {
+    const actions = {
+      new: { label: 'Começar preparo', next: 'grill' },
+      grill: { label: 'Marcar como pronto', next: 'ready' },
+      ready: { label: 'Voltar para a chapa', next: 'grill' },
+    };
+    const action = actions[status];
+    return `<article class="kitchen-order"><span class="kitchen-code">${order.code}</span><h3>${escapeHtml(order.customer.name)}</h3><p class="kitchen-count">${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'}</p><p class="kitchen-details">${escapeHtml(kitchenDetails(order))}</p><button class="kitchen-action" data-action="set-kitchen-status" data-code="${order.code}" data-status="${action.next}">${action.label}</button></article>`;
+  }
+
+  function renderKitchen() {
+    const columns = [
+      { status: 'new', title: 'Novos pedidos', empty: 'Nenhum pedido aguardando preparo.' },
+      { status: 'grill', title: 'Na chapa', empty: 'Nenhum pedido em preparo.' },
+      { status: 'ready', title: 'Prontos', empty: 'Nenhum pedido pronto ainda.' },
+    ];
+    const content = columns.map((column) => {
+      const orders = state.orders.filter((order) => !order.withdrawn && (order.kitchenStatus ?? 'new') === column.status);
+      return `<section class="kitchen-column kitchen-${column.status}"><div class="kitchen-column-head"><h2>${column.title}</h2><span>${orders.length}</span></div><div class="kitchen-list">${orders.length ? orders.map((order) => renderKitchenOrder(order, column.status)).join('') : `<p class="kitchen-empty">${column.empty}</p>`}</div></section>`;
+    }).join('');
+    return `<div class="app-shell kitchen-shell"><section class="page kitchen-page"><header class="team-top kitchen-top"><div class="header-actions"><button class="back-button" data-action="open-team" aria-label="Voltar ao painel administrativo"></button><span class="kitchen-live">COZINHA AO VIVO</span></div><h1>Painel<br>da cozinha.</h1><p>Abra em um celular ou tablet e acompanhe o preparo sem papel.</p></header><main class="kitchen-grid">${content}</main></section></div>`;
   }
 
   function render() {
-    const views = { home: renderHome, customize: renderCustomize, checkout: renderCheckout, pix: renderPix, confirmation: renderConfirmation, team: () => state.teamAuthorized ? renderTeam() : renderTeamLogin() };
+    const views = { home: renderHome, customize: renderCustomize, checkout: renderCheckout, pix: renderPix, confirmation: renderConfirmation, team: () => state.teamAuthorized ? renderTeam() : renderTeamLogin(), kitchen: renderKitchen };
     app.innerHTML = views[state.screen]();
     bindEvents();
   }
@@ -160,6 +192,8 @@ if (typeof document !== 'undefined') {
       combos: state.combos.map((combo) => ({ ...combo, removed: [...combo.removed] })),
       withdrawn: false,
       source: 'online',
+      kitchenStatus: 'new',
+      kitchenNote: '',
     };
   }
 
@@ -171,6 +205,7 @@ if (typeof document !== 'undefined') {
     }
     const pdf = new JsPdf({ orientation: 'portrait', unit: 'mm', format: 'a5' });
     const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
     pdf.setFillColor(26, 17, 14);
     pdf.rect(0, 0, pageWidth, 44, 'F');
     pdf.setTextColor(255, 194, 71);
@@ -205,9 +240,21 @@ if (typeof document !== 'undefined') {
     let y = 160;
     ticketLines(order).forEach((line) => {
       const lines = pdf.splitTextToSize(line, pageWidth - 30);
+      if (y + lines.length * 6 + 3 > pageHeight - 25) {
+        pdf.addPage();
+        pdf.setTextColor(41, 23, 18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.text('DETALHES DO PEDIDO — CONTINUAÇÃO', 15, 24);
+        y = 34;
+      }
       pdf.text(lines, 15, y);
       y += lines.length * 6 + 3;
     });
+    if (y + 38 > pageHeight - 15) {
+      pdf.addPage();
+      y = 24;
+    }
     pdf.setDrawColor(229, 201, 158);
     pdf.line(15, y + 4, pageWidth - 15, y + 4);
     pdf.setFont('helvetica', 'bold');
@@ -235,13 +282,15 @@ if (typeof document !== 'undefined') {
       if (action === 'to-pix') { const name = document.querySelector('#customer-name').value.trim(); const phone = document.querySelector('#customer-phone').value.trim(); const error = document.querySelector('#form-error'); if (!name || phone.replace(/\D/g, '').length < 10) { error.hidden = false; error.textContent = 'Informe seu nome e um celular válido para continuar.'; return; } state.customer = { name, phone }; createActiveOrder(); state.screen = 'pix'; render(); }
       if (action === 'confirm-payment') { state.orders.push(state.activeOrder); state.screen = 'confirmation'; render(); }
       if (action === 'open-team') { state.screen = 'team'; render(); }
+      if (action === 'open-kitchen') { state.screen = 'kitchen'; render(); }
       if (action === 'download-ticket') { downloadTicket(state.activeOrder); }
       if (action === 'withdraw') { state.orders = state.orders.map((order) => order.code === element.dataset.code ? markWithdrawn(order) : order); render(); }
+      if (action === 'set-kitchen-status') { state.orders = state.orders.map((order) => order.code === element.dataset.code ? setKitchenStatus(order, element.dataset.status) : order); render(); }
     }));
 
     app.querySelector('#team-login')?.addEventListener('submit', (event) => { event.preventDefault(); const error = document.querySelector('#team-error'); if (document.querySelector('#team-password').value !== 'domingo') { error.hidden = false; error.textContent = 'Senha incorreta. No protótipo, use domingo.'; return; } state.teamAuthorized = true; render(); });
     app.querySelector('#order-search')?.addEventListener('input', (event) => { state.teamSearch = event.target.value; render(); document.querySelector('#order-search')?.focus(); });
-    app.querySelector('#manual-sale')?.addEventListener('submit', (event) => { event.preventDefault(); const name = document.querySelector('#manual-name').value.trim(); const phone = document.querySelector('#manual-phone').value.trim(); const quantity = Number(document.querySelector('#manual-quantity').value); const error = document.querySelector('#manual-error'); if (!name || phone.replace(/\D/g, '').length < 10 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) { error.hidden = false; error.textContent = 'Informe nome, celular válido e uma quantidade entre 1 e 10.'; return; } if (quantity > availableStock()) { error.hidden = false; error.textContent = 'Não há combos suficientes disponíveis para esta venda.'; return; } state.orders.push({ code: orderCode(), customer: { name, phone }, combos: Array.from({ length: quantity }, () => createCombo()), withdrawn: false, source: 'manual' }); render(); });
+    app.querySelector('#manual-sale')?.addEventListener('submit', (event) => { event.preventDefault(); const name = document.querySelector('#manual-name').value.trim(); const phone = document.querySelector('#manual-phone').value.trim(); const quantity = Number(document.querySelector('#manual-quantity').value); const kitchenNote = document.querySelector('#manual-kitchen-note').value.trim(); const error = document.querySelector('#manual-error'); if (!name || phone.replace(/\D/g, '').length < 10 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) { error.hidden = false; error.textContent = 'Informe nome, celular válido e uma quantidade entre 1 e 10.'; return; } if (quantity > availableStock()) { error.hidden = false; error.textContent = 'Não há combos suficientes disponíveis para esta venda.'; return; } state.orders.push({ code: orderCode(), customer: { name, phone }, combos: Array.from({ length: quantity }, () => createCombo()), withdrawn: false, source: 'manual', kitchenStatus: 'new', kitchenNote }); render(); });
   }
 
   render();
