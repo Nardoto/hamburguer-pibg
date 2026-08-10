@@ -87,6 +87,7 @@ export function isAdminRole(role) {
 
 export function saleUrl(baseUrl, publicToken) {
   const url = new URL(baseUrl);
+  url.searchParams.delete('painel');
   url.searchParams.set('v', publicToken);
   return url.toString();
 }

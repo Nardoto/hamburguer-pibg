@@ -36,6 +36,7 @@ assert.equal(hasKitchenAdjustment({ combos: [{ mode: 'complete' }], kitchenNote:
 assert.equal(isAdminRole('admin'), true);
 assert.equal(isAdminRole('team'), false);
 assert.equal(saleUrl('https://hamburguerpibg.com/', 'domingo-abc'), 'https://hamburguerpibg.com/?v=domingo-abc');
+assert.equal(saleUrl('https://hamburguerpibg.com/?painel=equipe', 'domingo-abc'), 'https://hamburguerpibg.com/?v=domingo-abc');
 
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' },
