@@ -55,6 +55,8 @@ const confirmationEnd = appSource.indexOf('function renderRecovery()', confirmat
 const confirmationMarkup = appSource.slice(confirmationStart, confirmationEnd);
 assert.ok(confirmationMarkup.indexOf('download-ticket') < confirmationMarkup.indexOf('pickup-qr'));
 assert.equal(confirmationMarkup.includes("${actionBar('COMPRA CONFIRMADA'"), false);
+assert.equal(appSource.includes('class="stock-success"'), true);
+assert.equal(appSource.includes('Quantidade salva:'), true);
 
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' }, serviceMode: 'takeaway',
