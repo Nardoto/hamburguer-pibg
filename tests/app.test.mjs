@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { calculateTotal, canCreateSunday, createCombo, customizeCombo, deliveryFeedback, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
@@ -47,6 +48,13 @@ assert.equal(teamTabLabel('orders'), 'Pedidos');
 assert.equal(teamTabLabel('sales'), 'Vender');
 assert.equal(lastPurchaseLabel(null, new Date('2026-08-10T12:00:00Z')), 'Seja o primeiro a comprar');
 assert.equal(lastPurchaseLabel('2026-08-10T11:58:40Z', new Date('2026-08-10T12:00:00Z')), 'Última compra há 1 min');
+
+const appSource = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const confirmationStart = appSource.indexOf('function renderConfirmation()');
+const confirmationEnd = appSource.indexOf('function renderRecovery()', confirmationStart);
+const confirmationMarkup = appSource.slice(confirmationStart, confirmationEnd);
+assert.ok(confirmationMarkup.indexOf('download-ticket') < confirmationMarkup.indexOf('pickup-qr'));
+assert.equal(confirmationMarkup.includes("${actionBar('COMPRA CONFIRMADA'"), false);
 
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' }, serviceMode: 'takeaway',
