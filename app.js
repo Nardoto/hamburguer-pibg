@@ -138,6 +138,7 @@ if (typeof document !== 'undefined') {
     screen: urlParams.get('painel') === 'equipe' ? 'team' : 'home',
     quantity: 1,
     combos: [],
+    manualCombos: [createCombo()],
     activeCombo: 0,
     customer: { name: '', phone: '' },
     serviceMode: 'local',
@@ -231,6 +232,30 @@ if (typeof document !== 'undefined') {
     return `<div class="app-shell"><section class="page"><header class="team-top"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><img class="church-logo team-logo" src="./assets/logo-white.png" alt="PIBG — Primeira Igreja Batista em Goiabeiras"><h1>Painel<br>da equipe.</h1><p>Acesso exclusivo para voluntários autorizados.</p></header><div class="team-card"><form id="team-login"><label class="field"><span>E-MAIL DA EQUIPE</span><input id="team-email" type="email" autocomplete="email" placeholder="voluntario@igreja.com"></label><label class="field"><span>SENHA DA EQUIPE</span><input id="team-password" type="password" autocomplete="current-password" placeholder="Digite a senha"></label><p class="error" id="team-error" hidden></p><button class="primary-button" type="submit">Entrar no painel</button></form><p class="step-intro">Use o e-mail e a senha liberados pelo administrador.</p></div></section></div>`;
   }
 
+  function manualComboFields(combos = state.manualCombos) {
+    return combos.map((combo, index) => {
+      const isCustomized = combo.mode === 'customized';
+      const removals = INGREDIENTS.map((ingredient) => `<label><input type="checkbox" data-manual-ingredient value="${ingredient}" ${combo.removed.includes(ingredient) ? 'checked' : ''}> ${ingredient}</label>`).join('');
+      return `<fieldset class="manual-combo-card" data-manual-combo><legend>Combo ${index + 1}</legend><div class="manual-mode-choice"><label><input type="radio" name="manual-mode-${index}" value="complete" data-manual-mode ${isCustomized ? '' : 'checked'}> Completo</label><label><input type="radio" name="manual-mode-${index}" value="customized" data-manual-mode ${isCustomized ? 'checked' : ''}> Retirar itens</label></div><div class="manual-removals" ${isCustomized ? '' : 'hidden'}><span>O que retirar deste hambúrguer?</span><div>${removals}</div><label class="manual-note-label">Observação deste hambúrguer<input data-manual-note maxlength="120" value="${escapeHtml(combo.note)}" placeholder="Ex.: cortar ao meio"></label></div></fieldset>`;
+    }).join('');
+  }
+
+  function readManualComboDrafts() {
+    const cards = [...app.querySelectorAll('[data-manual-combo]')];
+    if (!cards.length) return state.manualCombos;
+    return cards.map((card) => {
+      const mode = card.querySelector('[data-manual-mode]:checked')?.value;
+      const removed = [...card.querySelectorAll('[data-manual-ingredient]:checked')].map((input) => input.value);
+      const note = card.querySelector('[data-manual-note]')?.value ?? '';
+      return mode === 'customized' ? customizeCombo(createCombo(), removed, note) : createCombo();
+    });
+  }
+
+  function refreshManualComboBuilder() {
+    const target = app.querySelector('#manual-combo-builder');
+    if (target) target.innerHTML = manualComboFields();
+  }
+
   function renderTeam() {
     const normalizedSearch = state.teamSearch.trim().toLowerCase();
     const orders = state.orders.filter((order) => !normalizedSearch || `${order.code} ${order.customer.name} ${order.customer.phone}`.toLowerCase().includes(normalizedSearch));
@@ -245,7 +270,7 @@ if (typeof document !== 'undefined') {
     const adminSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span>${activeAdmin}</div>` : '';
     const operations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span>${deliveryNotice}<button class="scan-button" data-action="start-scan">Ler QR Code e entregar</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Crie um novo domingo na administração para liberar compra, recepção e cozinha.</p></div>`;
     const orderOperations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span>${deliveryNotice}<button class="scan-button" data-action="start-scan">Ler QR Code e entregar</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Abra a aba Configurações para criar a nova venda.</p></div>`;
-    const salesOperations = state.sale ? `<div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Abra a aba Configurações para criar a nova venda.</p></div>`;
+    const salesOperations = state.sale ? `<div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="${state.manualCombos.length}"><small>Escolha como preparar cada hambúrguer logo abaixo.</small></label><div id="manual-combo-builder" class="manual-combo-builder">${manualComboFields()}</div><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Abra a aba Configurações para criar a nova venda.</p></div>`;
     const teamTabs = `<nav class="team-tabs" aria-label="Seções da equipe"><button class="${state.teamTab === 'orders' ? 'active' : ''}" data-action="team-tab" data-tab="orders">Pedidos</button><button class="${state.teamTab === 'sales' ? 'active' : ''}" data-action="team-tab" data-tab="sales">Vender</button>${isAdminRole(state.teamRole) ? `<button class="${state.teamTab === 'settings' ? 'active' : ''}" data-action="team-tab" data-tab="settings">Configurações</button>` : ''}</nav>`;
     const selectedOperations = state.teamTab === 'sales' ? salesOperations : state.teamTab === 'settings' && isAdminRole(state.teamRole) ? adminSettings : orderOperations;
     const teamTitle = state.teamTab === 'sales' ? 'Venda<br>presencial.' : state.teamTab === 'settings' ? 'Configurações<br>da venda.' : 'Pedidos<br>e retirada.';
@@ -617,19 +642,35 @@ if (typeof document !== 'undefined') {
       }
     });
     app.querySelector('#order-search')?.addEventListener('input', (event) => { state.teamSearch = event.target.value; render(); document.querySelector('#order-search')?.focus(); });
+    app.querySelector('#manual-quantity')?.addEventListener('change', (event) => {
+      const nextQuantity = Number(event.target.value);
+      if (!Number.isInteger(nextQuantity) || nextQuantity < 1 || nextQuantity > 10) return;
+      state.manualCombos = readManualComboDrafts();
+      state.manualCombos = Array.from({ length: nextQuantity }, (_, index) => state.manualCombos[index] ?? createCombo());
+      refreshManualComboBuilder();
+    });
+    app.querySelector('#manual-combo-builder')?.addEventListener('change', (event) => {
+      if (!event.target.matches('[data-manual-mode]')) return;
+      const removals = event.target.closest('[data-manual-combo]')?.querySelector('.manual-removals');
+      if (removals) removals.hidden = event.target.value !== 'customized';
+    });
     app.querySelector('#manual-sale')?.addEventListener('submit', async (event) => {
       event.preventDefault();
       const name = document.querySelector('#manual-name').value.trim();
       const phone = document.querySelector('#manual-phone').value.trim();
       const quantity = Number(document.querySelector('#manual-quantity').value);
       const serviceMode = document.querySelector('#manual-service-mode').value;
-      const kitchenNote = document.querySelector('#manual-kitchen-note').value.trim();
       const error = document.querySelector('#manual-error');
       if (!name || phone.replace(/\D/g, '').length < 10 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10 || !['local', 'takeaway'].includes(serviceMode)) { error.hidden = false; error.textContent = 'Informe nome, celular válido, destino e uma quantidade entre 1 e 10.'; return; }
+      const cards = [...app.querySelectorAll('[data-manual-combo]')];
+      const incompleteCombo = cards.findIndex((card) => card.querySelector('[data-manual-mode]:checked')?.value === 'customized' && !card.querySelector('[data-manual-ingredient]:checked') && !card.querySelector('[data-manual-note]')?.value.trim());
+      if (incompleteCombo >= 0) { error.hidden = false; error.textContent = `No Combo ${incompleteCombo + 1}, marque o que retirar ou escreva uma observação.`; return; }
+      const combos = readManualComboDrafts();
       try {
-        const order = { customer: { name, phone }, serviceMode, combos: Array.from({ length: quantity }, () => createCombo()), kitchenNote, source: 'manual', withdrawn: false, kitchenStatus: 'new' };
+        const order = { customer: { name, phone }, serviceMode, combos, kitchenNote: '', source: 'manual', withdrawn: false, kitchenStatus: 'new' };
         const confirmation = await createManualOrder(supabase, order);
         state.activeOrder = { ...order, code: confirmation.code };
+        state.manualCombos = Array.from({ length: quantity }, () => createCombo());
         await Promise.all([refreshTeamOrders(), refreshSale()]);
         state.screen = 'confirmation';
         render();

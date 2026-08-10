@@ -57,6 +57,8 @@ assert.ok(confirmationMarkup.indexOf('download-ticket') < confirmationMarkup.ind
 assert.equal(confirmationMarkup.includes("${actionBar('COMPRA CONFIRMADA'"), false);
 assert.equal(appSource.includes('class="stock-success"'), true);
 assert.equal(appSource.includes('Quantidade salva:'), true);
+assert.equal(appSource.includes('data-manual-combo'), true);
+assert.equal(appSource.includes('Retirar itens'), true);
 
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' }, serviceMode: 'takeaway',
