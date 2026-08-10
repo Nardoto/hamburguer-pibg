@@ -173,17 +173,20 @@ if (typeof document !== 'undefined') {
     return `<div class="sticky-action"><div class="sticky-inner"><div><small>${label}</small><strong>${money(total)}</strong></div><button class="primary-button" data-action="${action}">${actionLabel}</button></div></div>`;
   }
 
+  function purchaseBar() {
+    return `<div class="sticky-action"><div class="sticky-inner purchase-bar"><div class="ticket-quantity"><small>QUANTIDADE</small><div><button data-action="quantity" data-delta="-1" aria-label="Diminuir quantidade">−</button><strong>${state.quantity}</strong><button data-action="quantity" data-delta="1" aria-label="Aumentar quantidade">+</button></div></div><div class="ticket-total"><small>TOTAL</small><strong>${money(state.quantity * COMBO_PRICE)}</strong></div><button class="primary-button" data-action="start-order">Continuar pedido</button></div></div>`;
+  }
+
   function renderHome() {
     if (!state.sale) {
       return `<div class="app-shell"><section class="page"><header class="page-head public-head"><img class="church-logo" src="./assets/logo-white.png" alt="PIBG — Primeira Igreja Batista em Goiabeiras"></header><div class="sale-closed"><span>VENDA ENCERRADA</span><h1>Este link não é do domingo atual.</h1><p>Use o QR Code divulgado pela igreja para abrir a venda certa. Cada domingo possui um link e estoque próprios.</p></div></section></div>`;
     }
     return `<div class="app-shell"><section class="page">
       <header class="page-head public-head"><div class="public-brand"><img class="church-logo" src="./assets/logo-white.png" alt="PIBG — Primeira Igreja Batista em Goiabeiras"><span>Cantina dos Casais</span></div></header>
-      <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>${saleDateLabel(state.sale.event_date).toUpperCase()}</span></div><div class="hero-caption"><p>HAMBÚRGUER ARTESANAL</p><strong>R$ 25</strong><div class="hero-details"><b>Retirada após o culto · ${saleDateLabel(state.sale.event_date)}</b><span>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</span><div class="ingredient-tags"><i>140 g</i><i>Bacon crocante</i><i>Muçarela</i><i>Refri 200 ml</i></div><small>${lastPurchaseLabel(state.sale.last_purchase_at)}</small></div></div></div>
+      <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>${saleDateLabel(state.sale.event_date).toUpperCase()}</span><span class="pill hero-last">${lastPurchaseLabel(state.sale.last_purchase_at)}</span></div><div class="hero-caption"><p>HAMBÚRGUER ARTESANAL</p><strong>R$ 25</strong><div class="hero-details"><b>Retirada após o culto</b><span>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</span><div class="ingredient-tags"><i>140 g</i><i>Bacon crocante</i><i>Muçarela</i><i>Refri 200 ml</i></div></div></div></div>
       <div class="content">
-      <button class="recover-link" data-action="open-recovery">Já comprou? Recuperar comprovante</button>
-      <span class="section-label">QUANTOS COMBOS VOCÊ QUER?</span><div class="quantity"><button data-action="quantity" data-delta="-1" aria-label="Diminuir quantidade">−</button><output>${state.quantity}</output><button data-action="quantity" data-delta="1" aria-label="Aumentar quantidade">+</button></div></div>
-      ${actionBar(`${availableStock()} COMBOS DISPONÍVEIS · ${state.quantity} ${state.quantity === 1 ? 'COMBO' : 'COMBOS'}`, state.quantity * COMBO_PRICE, 'start-order', 'Montar pedido')}
+      <button class="recover-link" data-action="open-recovery">Já comprou? Recuperar comprovante</button></div>
+      ${purchaseBar()}
     </section></div>`;
   }
 
