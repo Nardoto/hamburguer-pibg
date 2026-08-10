@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { calculateTotal, createCombo, customizeCombo, markWithdrawn, ticketFilename, ticketLines } from '../app.js';
+import { calculateTotal, createCombo, customizeCombo, markWithdrawn, ticketFilename, ticketLines, ticketHeader } from '../app.js';
 
 const completeCombo = createCombo();
 assert.equal(completeCombo.mode, 'complete');
@@ -22,5 +22,6 @@ const orderForTicket = {
 };
 assert.equal(ticketFilename(orderForTicket), 'comprovante-hamburguer-pibg-PIBG-0001.pdf');
 assert.deepEqual(ticketLines(orderForTicket), ['Combo 1: Sem Tomate, Bacon · Cortar ao meio']);
+assert.equal(ticketHeader(orderForTicket), 'RETIRADA DE MARIA DA SILVA');
 
 console.log('Todos os testes do pedido passaram.');

@@ -44,6 +44,10 @@ export function ticketLines(order) {
   });
 }
 
+export function ticketHeader(order) {
+  return `RETIRADA DE ${order.customer.name.trim().toUpperCase()}`;
+}
+
 if (typeof document !== 'undefined') {
   const STOCK_LIMIT = 150;
   const state = {
@@ -176,9 +180,12 @@ if (typeof document !== 'undefined') {
     pdf.setFontSize(10);
     pdf.text('COMPROVANTE DE RETIRADA', 15, 30);
     pdf.setTextColor(41, 23, 18);
-    pdf.setFontSize(12);
-    pdf.text(`Pedido de: ${order.customer.name}`, 15, 58);
-    pdf.text(`Celular: ${order.customer.phone}`, 15, 66);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.text(ticketHeader(order), 15, 59);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    pdf.text(`Celular: ${order.customer.phone}`, 15, 68);
     pdf.setFillColor(255, 194, 71);
     pdf.roundedRect(15, 77, pageWidth - 30, 38, 4, 4, 'F');
     pdf.setTextColor(41, 23, 18);
