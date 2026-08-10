@@ -60,6 +60,9 @@ assert.equal(appSource.includes('Quantidade salva:'), true);
 assert.equal(appSource.includes('data-manual-combo'), true);
 assert.equal(appSource.includes('Retirar itens'), true);
 
+const stylesSource = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+assert.equal(stylesSource.includes('.manual-removals[hidden] { display: none; }'), true);
+
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' }, serviceMode: 'takeaway',
   combos: [{ removed: ['Tomate'], note: 'Cortar ao meio' }],
