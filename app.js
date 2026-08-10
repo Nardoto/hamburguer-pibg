@@ -109,8 +109,7 @@ if (typeof document !== 'undefined') {
     teamRole: null,
     teamSearch: '',
     scanning: false,
-    qrStream: null,
-    qrScanFrame: null,
+    qrScanner: null,
     sale: null,
     publicToken: urlParams.get('v'),
   };
@@ -185,7 +184,7 @@ if (typeof document !== 'undefined') {
     const orders = state.orders.filter((order) => !normalizedSearch || `${order.code} ${order.customer.name} ${order.customer.phone}`.toLowerCase().includes(normalizedSearch));
     const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
     const sold = state.sale.confirmed_quantity;
-    const scanner = state.scanning ? `<div class="scan-panel"><video id="scan-video" playsinline muted></video><p>Aponte a câmera para o QR Code do comprovante.</p><button class="secondary-button" data-action="stop-scan">Cancelar leitura</button></div>` : '';
+    const scanner = state.scanning ? `<div class="scan-panel"><div id="qr-reader"></div><p>Aponte a câmera para o QR Code do comprovante.</p><button class="secondary-button" data-action="stop-scan">Cancelar leitura</button></div>` : '';
     const publicLink = state.sale?.public_token ? saleUrl(window.location.href, state.sale.public_token) : '';
     const stockSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span><form id="start-sale" class="team-form"><label class="field"><span>NOVO DOMINGO</span><input id="new-sale-name" value="Hambúrguer PIBG — próximo domingo" maxlength="100"><small>Criar uma nova venda encerra o link e os pedidos do domingo anterior.</small></label><label class="field"><span>DATA DA VENDA</span><input id="new-sale-date" type="date" required></label><label class="field"><span>QUANTIDADE INICIAL</span><input id="new-sale-stock" type="number" min="1" value="150"></label><button class="primary-button" type="submit">Criar novo domingo</button><p class="error" id="new-sale-error" hidden></p></form>${state.sale ? `<form id="stock-settings" class="team-form admin-divider"><label class="field"><span>QUANTIDADE TOTAL DE COMBOS</span><input id="stock-total" type="number" min="0" value="${state.sale.stock_total}"><small>Não pode ser menor que os pedidos já confirmados ou reservados.</small></label><button class="secondary-button" type="submit">Salvar quantidade</button><p class="error" id="stock-error" hidden></p></form><div class="sale-link-card"><b>LINK PÚBLICO DESTE DOMINGO</b><input readonly value="${escapeHtml(publicLink)}" aria-label="Link público da venda"><div id="sale-link-qr" aria-label="QR Code para abrir esta venda"></div><button class="secondary-button" data-action="copy-sale-link">Copiar link</button></div>` : ''}</div>` : '';
     return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><button class="kitchen-button" data-action="open-kitchen">Cozinha</button></div><h1>Recepção<br>PIBG.</h1><p>Leia o QR Code do cliente, confira o pedido e marque a retirada.</p></header><div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span><button class="scan-button" data-action="start-scan">Ler QR Code do cliente</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div>${stockSettings}<div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
@@ -289,42 +288,39 @@ if (typeof document !== 'undefined') {
   }
 
   function stopQrScanner() {
-    if (state.qrScanFrame) window.cancelAnimationFrame(state.qrScanFrame);
-    state.qrScanFrame = null;
-    state.qrStream?.getTracks().forEach((track) => track.stop());
-    state.qrStream = null;
+    const scanner = state.qrScanner;
+    state.qrScanner = null;
     state.scanning = false;
+    scanner?.stop().catch(() => {});
   }
 
   async function startQrScanner() {
-    if (!window.BarcodeDetector || !navigator.mediaDevices?.getUserMedia) {
+    if (!window.Html5Qrcode || !navigator.mediaDevices?.getUserMedia) {
       window.alert('A leitura pela câmera não está disponível neste navegador. Digite o código PIBG-0000 mostrado no comprovante.');
       state.scanning = false;
       render();
       return;
     }
     try {
-      const video = app.querySelector('#scan-video');
-      state.qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-      video.srcObject = state.qrStream;
-      await video.play();
-      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-      const scan = async () => {
-        if (!state.scanning || !video.isConnected) return;
-        const result = await detector.detect(video);
-        const code = result[0]?.rawValue?.trim().toUpperCase();
-        if (code && /^PIBG-\d{4,}$/.test(code)) {
-          stopQrScanner();
-          state.teamSearch = code;
-          render();
-          return;
-        }
-        state.qrScanFrame = window.requestAnimationFrame(scan);
-      };
-      scan();
+      const scanner = new window.Html5Qrcode('qr-reader', { verbose: false });
+      state.qrScanner = scanner;
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (rawValue) => {
+          const code = rawValue.trim().toUpperCase();
+          if (!state.scanning) return;
+          if (code && /^PIBG-\d{4,}$/.test(code)) {
+            stopQrScanner();
+            state.teamSearch = code;
+            render();
+          }
+        },
+        () => {},
+      );
     } catch (error) {
       stopQrScanner();
-      window.alert('Não foi possível abrir a câmera. Verifique a permissão e tente novamente.');
+      window.alert('Não foi possível abrir a câmera. Verifique a permissão e tente novamente ou digite o código do pedido.');
       render();
     }
   }
