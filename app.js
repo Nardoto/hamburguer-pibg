@@ -178,15 +178,14 @@ if (typeof document !== 'undefined') {
       return `<div class="app-shell"><section class="page"><header class="page-head public-head"><img class="church-logo" src="./assets/logo-white.png" alt="PIBG — Primeira Igreja Batista em Goiabeiras"></header><div class="sale-closed"><span>VENDA ENCERRADA</span><h1>Este link não é do domingo atual.</h1><p>Use o QR Code divulgado pela igreja para abrir a venda certa. Cada domingo possui um link e estoque próprios.</p></div></section></div>`;
     }
     return `<div class="app-shell"><section class="page">
-      <header class="page-head public-head"><img class="church-logo" src="./assets/logo-white.png" alt="PIBG — Primeira Igreja Batista em Goiabeiras"></header>
-      <div class="sale-focus"><span>VENDAS PARA</span><strong>${saleDateLabel(state.sale.event_date).toUpperCase()}</strong><small>Retirada após o culto</small></div>
-      <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>VENDAS ABERTAS</span><span class="pill">ESTOQUE AO VIVO</span></div><div class="hero-caption"><p>COMBO ARTESANAL</p><h1>FOME DE<br>VERDADE.<small>COMPRA SEM FILA.</small></h1></div></div>
-      <div class="content"><div class="product-copy"><div><h2>O combo que salva seu domingo.</h2><p class="pickup-day">Retirada após o culto · ${saleDateLabel(state.sale.event_date)}</p><p>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</p></div><div class="price">R$ 25</div></div>
+      <header class="page-head public-head"><div class="public-brand"><img class="church-logo" src="./assets/logo-white.png" alt="PIBG — Primeira Igreja Batista em Goiabeiras"><span>Cantina dos Casais</span></div></header>
+      <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>${saleDateLabel(state.sale.event_date).toUpperCase()}</span><span class="pill">${availableStock()} DISPONÍVEIS</span></div><div class="hero-caption"><p>HAMBÚRGUER ARTESANAL</p><strong>R$ 25</strong></div></div>
+      <div class="content"><div class="product-copy"><div><p class="pickup-day">Retirada após o culto · ${saleDateLabel(state.sale.event_date)}</p><p>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</p></div></div>
       <div class="ingredient-tags"><span>140 g</span><span>Bacon crocante</span><span>Muçarela</span><span>Refri 200 ml</span></div>
       <div class="stock-note stock-pulse"><strong><b>${availableStock()}</b> combos disponíveis</strong><small>${lastPurchaseLabel(state.sale.last_purchase_at)}<em>Estoque ao vivo</em></small></div>
       <button class="recover-link" data-action="open-recovery">Já comprou? Recuperar comprovante</button>
       <span class="section-label">QUANTOS COMBOS VOCÊ QUER?</span><div class="quantity"><button data-action="quantity" data-delta="-1" aria-label="Diminuir quantidade">−</button><output>${state.quantity}</output><button data-action="quantity" data-delta="1" aria-label="Aumentar quantidade">+</button></div></div>
-      ${actionBar(`${state.quantity} ${state.quantity === 1 ? 'COMBO' : 'COMBOS'} · MONTE DO SEU JEITO`, state.quantity * COMBO_PRICE, 'start-order', 'Montar pedido')}
+      ${actionBar(`${state.quantity} ${state.quantity === 1 ? 'COMBO' : 'COMBOS'}`, state.quantity * COMBO_PRICE, 'start-order', 'Montar pedido')}
     </section></div>`;
   }
 
