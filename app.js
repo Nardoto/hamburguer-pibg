@@ -3,10 +3,12 @@ import {
   createManualOrder,
   createPibgClient,
   fetchActiveSale,
+  fetchTeamRole,
   fetchTeamOrders,
   reserveOrder,
   signInTeam,
   updateKitchenStatus,
+  updateStockTotal,
   withdrawOrder,
 } from './supabase-client.js';
 
@@ -66,6 +68,21 @@ export function kitchenDetails(order) {
   return adjustedCombos.length ? adjustedCombos.join(' | ') : `${order.combos.length} ${order.combos.length === 1 ? 'combo completo' : 'combos completos'}`;
 }
 
+export function hasKitchenAdjustment(order) {
+  return Boolean(order.kitchenNote?.trim()) || (order.combos ?? []).some((combo) => combo.mode === 'customized' || Boolean(combo.removed?.length) || Boolean(String(combo.note ?? '').trim()));
+}
+
+export function shortOrderNumber(code) {
+  const digits = String(code ?? '').match(/(\d+)$/)?.[1];
+  if (!digits) return '—';
+  const number = Number(digits);
+  return number < 1000 ? String(number).padStart(3, '0') : String(number);
+}
+
+export function isAdminRole(role) {
+  return role === 'admin';
+}
+
 export function setKitchenStatus(order, kitchenStatus) {
   return { ...order, kitchenStatus };
 }
@@ -80,7 +97,11 @@ if (typeof document !== 'undefined') {
     orders: [],
     activeOrder: null,
     teamAuthorized: false,
+    teamRole: null,
     teamSearch: '',
+    scanning: false,
+    qrStream: null,
+    qrScanFrame: null,
     sale: { stock_total: 150, reserved_quantity: 0, confirmed_quantity: 0 },
   };
 
@@ -139,7 +160,7 @@ if (typeof document !== 'undefined') {
 
   function renderConfirmation() {
     const order = state.activeOrder;
-    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este código para a equipe.</p><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'open-team', 'Painel da equipe')}</section></div>`;
+    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este QR Code para a equipe.</p><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>A equipe escaneia e confirma sua retirada.</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'home', 'Voltar ao cardápio')}</section></div>`;
   }
 
   function renderTeamLogin() {
@@ -149,38 +170,31 @@ if (typeof document !== 'undefined') {
   function renderTeam() {
     const normalizedSearch = state.teamSearch.trim().toLowerCase();
     const orders = state.orders.filter((order) => !normalizedSearch || `${order.code} ${order.customer.name} ${order.customer.phone}`.toLowerCase().includes(normalizedSearch));
-    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${order.combos.some((combo) => combo.mode === 'customized') || order.kitchenNote ? '<br>${escapeHtml(kitchenDetails(order))}' : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
+    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
     const sold = state.sale.confirmed_quantity;
-    return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><button class="kitchen-button" data-action="open-kitchen">Cozinha</button></div><h1>Painel<br>administrativo.</h1><p>Vendas on-line e presenciais no mesmo lugar.</p></header><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DETALHES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 2 completos e 1 sem tomate."></textarea><small>Opcional. Se ficar em branco, o pedido entra como combos completos.</small></label><button class="primary-button" type="submit">Registrar pagamento e pedido</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
+    const scanner = state.scanning ? `<div class="scan-panel"><video id="scan-video" playsinline muted></video><p>Aponte a câmera para o QR Code do comprovante.</p><button class="secondary-button" data-action="stop-scan">Cancelar leitura</button></div>` : '';
+    const stockSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span><form id="stock-settings" class="team-form"><label class="field"><span>QUANTIDADE TOTAL DE COMBOS</span><input id="stock-total" type="number" min="0" value="${state.sale.stock_total}"><small>Não pode ser menor que os pedidos já confirmados ou reservados.</small></label><button class="secondary-button" type="submit">Salvar quantidade</button><p class="error" id="stock-error" hidden></p></form></div>` : '';
+    return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><button class="kitchen-button" data-action="open-kitchen">Cozinha</button></div><h1>Recepção<br>PIBG.</h1><p>Leia o QR Code do cliente, confira o pedido e marque a retirada.</p></header><div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span><button class="scan-button" data-action="start-scan">Ler QR Code do cliente</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div>${stockSettings}<div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
   }
 
-  function renderKitchenOrder(order, status) {
-    const actions = {
-      new: { label: 'Começar preparo', next: 'grill' },
-      grill: { label: 'Marcar como pronto', next: 'ready' },
-      ready: { label: 'Voltar para a chapa', next: 'grill' },
-    };
-    const action = actions[status];
-    return `<article class="kitchen-order"><span class="kitchen-code">${order.code}</span><h3>${escapeHtml(order.customer.name)}</h3><p class="kitchen-count">${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'}</p><p class="kitchen-details">${escapeHtml(kitchenDetails(order))}</p><button class="kitchen-action" data-action="set-kitchen-status" data-id="${order.id}" data-status="${action.next}">${action.label}</button></article>`;
+  function renderKitchenOrder(order) {
+    const separated = order.kitchenStatus === 'ready';
+    const adjustments = kitchenDetails(order).split(' | ').map((detail) => `<span>${escapeHtml(detail.replace(/^Combo \d+: /, ''))}</span>`).join('');
+    return `<article class="kitchen-order ${separated ? 'separated' : ''}"><div class="kitchen-order-top"><strong>${shortOrderNumber(order.code)}</strong><div><h3>${escapeHtml(order.customer.name)}</h3><p class="kitchen-count">${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'hambúrguer' : 'hambúrgueres'}</p></div></div><div class="kitchen-details">${adjustments}</div><button class="kitchen-action" data-action="set-kitchen-status" data-id="${order.id}" data-status="${separated ? 'new' : 'ready'}">${separated ? 'Voltar para ajustes' : 'Marcar como separado'}</button></article>`;
   }
 
   function renderKitchen() {
-    const columns = [
-      { status: 'new', title: 'Novos pedidos', empty: 'Nenhum pedido aguardando preparo.' },
-      { status: 'grill', title: 'Na chapa', empty: 'Nenhum pedido em preparo.' },
-      { status: 'ready', title: 'Prontos', empty: 'Nenhum pedido pronto ainda.' },
-    ];
-    const content = columns.map((column) => {
-      const orders = state.orders.filter((order) => !order.withdrawn && (order.kitchenStatus ?? 'new') === column.status);
-      return `<section class="kitchen-column kitchen-${column.status}"><div class="kitchen-column-head"><h2>${column.title}</h2><span>${orders.length}</span></div><div class="kitchen-list">${orders.length ? orders.map((order) => renderKitchenOrder(order, column.status)).join('') : `<p class="kitchen-empty">${column.empty}</p>`}</div></section>`;
-    }).join('');
-    return `<div class="app-shell kitchen-shell"><section class="page kitchen-page"><header class="team-top kitchen-top"><div class="header-actions"><button class="back-button" data-action="open-team" aria-label="Voltar ao painel administrativo"></button><span class="kitchen-live">COZINHA AO VIVO</span></div><h1>Painel<br>da cozinha.</h1><p>Abra em um celular ou tablet e acompanhe o preparo sem papel.</p></header><main class="kitchen-grid">${content}</main></section></div>`;
+    const specialOrders = state.orders.filter((order) => !order.withdrawn && hasKitchenAdjustment(order));
+    const pending = specialOrders.filter((order) => order.kitchenStatus !== 'ready');
+    const separated = specialOrders.filter((order) => order.kitchenStatus === 'ready');
+    return `<div class="app-shell kitchen-shell"><section class="page kitchen-page"><header class="team-top kitchen-top"><div class="header-actions"><button class="back-button" data-action="open-team" aria-label="Voltar à recepção"></button><span class="kitchen-live">COZINHA AO VIVO</span></div><h1>Ajustes<br>especiais.</h1><p>Os completos entram apenas na leva padrão. Aqui aparecem só os hambúrgueres diferentes.</p></header><main class="kitchen-grid"><section class="batch-card"><span>PRÓXIMA LEVA</span><strong>15 completos</strong><p>Prepare normalmente. Não precisam aparecer nesta tela.</p></section><section class="kitchen-column"><div class="kitchen-column-head"><h2>Separar na montagem</h2><span>${pending.length}</span></div><div class="kitchen-list">${pending.length ? pending.map(renderKitchenOrder).join('') : '<p class="kitchen-empty">Nenhum ajuste pendente. A produção padrão pode seguir.</p>'}</div></section><section class="kitchen-column kitchen-ready"><div class="kitchen-column-head"><h2>Já separados</h2><span>${separated.length}</span></div><div class="kitchen-list">${separated.length ? separated.map(renderKitchenOrder).join('') : '<p class="kitchen-empty">Os pedidos separados aparecerão aqui.</p>'}</div></section></main></section></div>`;
   }
 
   function render() {
-    const views = { home: renderHome, customize: renderCustomize, checkout: renderCheckout, pix: renderPix, confirmation: renderConfirmation, team: () => state.teamAuthorized ? renderTeam() : renderTeamLogin(), kitchen: renderKitchen };
+    const views = { home: renderHome, customize: renderCustomize, checkout: renderCheckout, pix: renderPix, confirmation: renderConfirmation, team: () => state.teamAuthorized ? renderTeam() : renderTeamLogin(), kitchen: () => state.teamAuthorized ? renderKitchen() : renderTeamLogin() };
     app.innerHTML = views[state.screen]();
     bindEvents();
+    renderPickupQr();
   }
 
   function syncCurrentCombo() {
@@ -227,6 +241,7 @@ if (typeof document !== 'undefined') {
       if (shouldRender && ['team', 'kitchen'].includes(state.screen)) render();
     } catch (error) {
       state.teamAuthorized = false;
+      state.teamRole = null;
       state.orders = [];
       if (shouldRender) render();
     }
@@ -237,6 +252,55 @@ if (typeof document !== 'undefined') {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_events' }, () => refreshSale(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => refreshTeamOrders(true))
       .subscribe();
+  }
+
+  function renderPickupQr() {
+    const target = app.querySelector('#pickup-qr');
+    if (!target || !state.activeOrder?.code) return;
+    if (!window.QRCode) { target.textContent = state.activeOrder.code; return; }
+    target.replaceChildren();
+    new window.QRCode(target, { text: state.activeOrder.code, width: 132, height: 132, colorDark: '#1a110e', colorLight: '#fffdf9', correctLevel: window.QRCode.CorrectLevel.M });
+  }
+
+  function stopQrScanner() {
+    if (state.qrScanFrame) window.cancelAnimationFrame(state.qrScanFrame);
+    state.qrScanFrame = null;
+    state.qrStream?.getTracks().forEach((track) => track.stop());
+    state.qrStream = null;
+    state.scanning = false;
+  }
+
+  async function startQrScanner() {
+    if (!window.BarcodeDetector || !navigator.mediaDevices?.getUserMedia) {
+      window.alert('A leitura pela câmera não está disponível neste navegador. Digite o código PIBG-0000 mostrado no comprovante.');
+      state.scanning = false;
+      render();
+      return;
+    }
+    try {
+      const video = app.querySelector('#scan-video');
+      state.qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      video.srcObject = state.qrStream;
+      await video.play();
+      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      const scan = async () => {
+        if (!state.scanning || !video.isConnected) return;
+        const result = await detector.detect(video);
+        const code = result[0]?.rawValue?.trim().toUpperCase();
+        if (code && /^PIBG-\d{4,}$/.test(code)) {
+          stopQrScanner();
+          state.teamSearch = code;
+          render();
+          return;
+        }
+        state.qrScanFrame = window.requestAnimationFrame(scan);
+      };
+      scan();
+    } catch (error) {
+      stopQrScanner();
+      window.alert('Não foi possível abrir a câmera. Verifique a permissão e tente novamente.');
+      render();
+    }
   }
 
   function downloadTicket(order) {
@@ -314,7 +378,7 @@ if (typeof document !== 'undefined') {
       const action = element.dataset.action;
       if (action === 'quantity') { state.quantity = Math.max(1, Math.min(10, state.quantity + Number(element.dataset.delta))); render(); }
       if (action === 'start-order') { goToCustomization(); render(); }
-      if (action === 'home') { state.screen = 'home'; render(); }
+      if (action === 'home') { stopQrScanner(); state.screen = 'home'; render(); }
       if (action === 'customize') { state.screen = 'customize'; render(); }
       if (action === 'checkout') { syncCurrentCombo(); state.screen = 'checkout'; render(); }
       if (action === 'select-combo') { syncCurrentCombo(); state.activeCombo = Number(element.dataset.index); render(); }
@@ -351,7 +415,9 @@ if (typeof document !== 'undefined') {
         }
       }
       if (action === 'open-team') { state.screen = 'team'; render(); }
-      if (action === 'open-kitchen') { await refreshTeamOrders(); state.screen = 'kitchen'; render(); }
+      if (action === 'open-kitchen') { stopQrScanner(); await refreshTeamOrders(); state.screen = 'kitchen'; render(); }
+      if (action === 'start-scan') { state.scanning = true; render(); await startQrScanner(); }
+      if (action === 'stop-scan') { stopQrScanner(); render(); }
       if (action === 'download-ticket') { downloadTicket(state.activeOrder); }
       if (action === 'withdraw') {
         try { await withdrawOrder(supabase, element.dataset.id); await Promise.all([refreshTeamOrders(), refreshSale()]); render(); } catch (withdrawError) { window.alert(withdrawError.message); }
@@ -368,6 +434,7 @@ if (typeof document !== 'undefined') {
       const password = document.querySelector('#team-password').value;
       try {
         await signInTeam(supabase, email, password);
+        state.teamRole = await fetchTeamRole(supabase);
         state.orders = await fetchTeamOrders(supabase);
         state.teamAuthorized = true;
         state.screen = 'team';
@@ -387,12 +454,35 @@ if (typeof document !== 'undefined') {
       const error = document.querySelector('#manual-error');
       if (!name || phone.replace(/\D/g, '').length < 10 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) { error.hidden = false; error.textContent = 'Informe nome, celular válido e uma quantidade entre 1 e 10.'; return; }
       try {
-        await createManualOrder(supabase, { customer: { name, phone }, combos: Array.from({ length: quantity }, () => createCombo()), kitchenNote });
+        const order = { customer: { name, phone }, combos: Array.from({ length: quantity }, () => createCombo()), kitchenNote, source: 'manual', withdrawn: false, kitchenStatus: 'new' };
+        const confirmation = await createManualOrder(supabase, order);
+        state.activeOrder = { ...order, code: confirmation.code };
         await Promise.all([refreshTeamOrders(), refreshSale()]);
+        state.screen = 'confirmation';
         render();
       } catch (manualError) {
         error.hidden = false;
         error.textContent = manualError.message;
+      }
+    });
+    app.querySelector('#qr-search')?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const code = document.querySelector('#qr-code-input').value.trim().toUpperCase();
+      state.teamSearch = code;
+      render();
+    });
+    app.querySelector('#stock-settings')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const input = document.querySelector('#stock-total');
+      const error = document.querySelector('#stock-error');
+      const total = Number(input.value);
+      if (!Number.isInteger(total) || total < 0) { error.hidden = false; error.textContent = 'Informe uma quantidade inteira igual ou maior que zero.'; return; }
+      try {
+        state.sale = await updateStockTotal(supabase, total);
+        render();
+      } catch (stockError) {
+        error.hidden = false;
+        error.textContent = stockError.message;
       }
     });
   }

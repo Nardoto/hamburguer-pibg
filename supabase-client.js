@@ -78,6 +78,12 @@ export async function fetchTeamOrders(client) {
   return (data ?? []).map(orderFromDatabase);
 }
 
+export async function fetchTeamRole(client) {
+  const { data, error } = await client.rpc('current_team_role');
+  if (error || !data) throw operationError(error, 'Você não tem acesso aos pedidos da equipe.');
+  return data;
+}
+
 export async function createManualOrder(client, order) {
   const { data, error } = await client.rpc('create_manual_order', {
     ...orderRpcPayload(order),
@@ -95,4 +101,10 @@ export async function updateKitchenStatus(client, orderId, kitchenStatus) {
 export async function withdrawOrder(client, orderId) {
   const { error } = await client.rpc('mark_order_withdrawn', { p_order_id: orderId });
   if (error) throw operationError(error, 'Não foi possível registrar a retirada.');
+}
+
+export async function updateStockTotal(client, stockTotal) {
+  const { data, error } = await client.rpc('set_active_stock_total', { p_stock_total: stockTotal });
+  if (error) throw operationError(error, 'Não foi possível atualizar a quantidade de combos.');
+  return data?.[0];
 }

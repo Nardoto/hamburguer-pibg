@@ -6,20 +6,30 @@ Projeto: `hcehptespejazgapynus` — [abrir painel](https://supabase.com/dashboar
 
 O banco guarda a venda ativa, reservas, pedidos confirmados, retirada e etapas da cozinha. A venda inicial começa com 150 combos de R$ 25,00.
 
-## Criar o primeiro acesso da equipe
+## Criar os acessos privados
 
-1. No painel do Supabase, abra **Authentication > Users > Add user**.
-2. Informe o e-mail de um administrador da igreja e uma senha forte.
-3. Abra **SQL Editor**, troque o e-mail no comando abaixo e execute:
+No painel do Supabase, abra **Authentication > Users > Add user** e crie:
+
+- Uma conta compartilhada, por exemplo `equipe@pibg.com`, usada por recepção e cozinha.
+- Sua conta pessoal de administrador, com senha forte e não compartilhada.
+
+Depois, abra **SQL Editor**, troque os dois e-mails e execute:
 
 ```sql
 insert into public.team_members (user_id, role)
-select id, 'admin'
+select id,
+  case
+    when email = 'equipe@pibg.com' then 'team'
+    when email = 'administrador@igreja.com' then 'admin'
+  end
 from auth.users
-where email = 'administrador@igreja.com';
+where email in ('equipe@pibg.com', 'administrador@igreja.com')
+on conflict (user_id) do update set role = excluded.role;
 ```
 
-Depois disso, esse e-mail entra no painel administrativo e também no painel da cozinha.
+Quem entra com a conta compartilhada pode registrar venda presencial, ler o QR Code para entregar pedidos e abrir a cozinha. A conta de administrador também pode alterar a quantidade total de combos da venda ativa.
+
+Em produção, a câmera do celular exige que o site esteja em HTTPS; Vercel já entrega isso automaticamente no domínio público.
 
 ## Segurança de publicação
 

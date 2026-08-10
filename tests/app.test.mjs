@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { calculateTotal, createCombo, customizeCombo, markWithdrawn, ticketFilename, ticketLines, ticketHeader, kitchenDetails, setKitchenStatus } from '../app.js';
+import { calculateTotal, createCombo, customizeCombo, hasKitchenAdjustment, isAdminRole, markWithdrawn, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -27,6 +27,14 @@ assert.deepEqual(ticketLines({ ...orderForTicket, combos: [completeCombo] }), ['
 assert.equal(ticketHeader(orderForTicket), 'RETIRADA DE MARIA DA SILVA');
 assert.equal(kitchenDetails({ ...orderForTicket, kitchenNote: '2 completos e 1 sem tomate' }), '2 completos e 1 sem tomate');
 assert.equal(setKitchenStatus({ kitchenStatus: 'new' }, 'grill').kitchenStatus, 'grill');
+assert.equal(shortOrderNumber('PIBG-0025'), '025');
+assert.equal(shortOrderNumber('PIBG-1000'), '1000');
+assert.equal(hasKitchenAdjustment({ ...orderForTicket, kitchenNote: '' }), true);
+assert.equal(hasKitchenAdjustment({ ...orderForTicket, combos: [completeCombo], kitchenNote: '' }), false);
+assert.equal(hasKitchenAdjustment({ ...orderForTicket, combos: [completeCombo], kitchenNote: 'Sem queijo' }), true);
+assert.equal(hasKitchenAdjustment({ combos: [{ mode: 'complete' }], kitchenNote: '' }), false);
+assert.equal(isAdminRole('admin'), true);
+assert.equal(isAdminRole('team'), false);
 
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' },
