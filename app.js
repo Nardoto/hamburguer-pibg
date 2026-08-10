@@ -1,5 +1,6 @@
 export const INGREDIENTS = ['Alface', 'Tomate', 'Bacon', 'Barbecue', 'Queijo muçarela'];
 export const COMBO_PRICE = 25;
+export const COMPLETE_COMBO_DETAILS = 'bife 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante 200 ml';
 
 let comboSequence = 0;
 
@@ -40,7 +41,7 @@ export function ticketLines(order) {
     const details = [];
     if (combo.removed.length) details.push(`Sem ${combo.removed.join(', ')}`);
     if (combo.note) details.push(combo.note);
-    return `Combo ${index + 1}: ${details.length ? details.join(' · ') : 'Completo'}`;
+    return `Combo ${index + 1}: ${details.length ? details.join(' · ') : `Completo - ${COMPLETE_COMBO_DETAILS}`}`;
   });
 }
 
@@ -179,25 +180,29 @@ if (typeof document !== 'undefined') {
     pdf.setTextColor(255, 244, 221);
     pdf.setFontSize(10);
     pdf.text('COMPROVANTE DE RETIRADA', 15, 30);
+    pdf.setFillColor(255, 244, 221);
+    pdf.roundedRect(15, 53, pageWidth - 30, 27, 4, 4, 'F');
     pdf.setTextColor(41, 23, 18);
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(14);
-    pdf.text(ticketHeader(order), 15, 59);
+    pdf.setFontSize(8);
+    pdf.text('NOME PARA RETIRADA', 20, 62);
+    pdf.setFontSize(16);
+    pdf.text(ticketHeader(order).replace('RETIRADA DE ', ''), 20, 73);
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(11);
-    pdf.text(`Celular: ${order.customer.phone}`, 15, 68);
+    pdf.setFontSize(9);
+    pdf.text(`Celular: ${order.customer.phone}`, 15, 88);
     pdf.setFillColor(255, 194, 71);
-    pdf.roundedRect(15, 77, pageWidth - 30, 38, 4, 4, 'F');
+    pdf.roundedRect(15, 97, pageWidth - 30, 38, 4, 4, 'F');
     pdf.setTextColor(41, 23, 18);
     pdf.setFontSize(9);
-    pdf.text('CODIGO DE RETIRADA', pageWidth / 2, 89, { align: 'center' });
+    pdf.text('CODIGO DE RETIRADA', pageWidth / 2, 109, { align: 'center' });
     pdf.setFontSize(28);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(order.code, pageWidth / 2, 105, { align: 'center' });
+    pdf.text(order.code, pageWidth / 2, 125, { align: 'center' });
     pdf.setTextColor(41, 23, 18);
     pdf.setFontSize(11);
-    pdf.text('Seu pedido', 15, 130);
-    let y = 139;
+    pdf.text('DETALHES DO PEDIDO', 15, 151);
+    let y = 160;
     ticketLines(order).forEach((line) => {
       const lines = pdf.splitTextToSize(line, pageWidth - 30);
       pdf.text(lines, 15, y);

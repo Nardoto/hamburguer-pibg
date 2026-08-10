@@ -22,6 +22,7 @@ const orderForTicket = {
 };
 assert.equal(ticketFilename(orderForTicket), 'comprovante-hamburguer-pibg-PIBG-0001.pdf');
 assert.deepEqual(ticketLines(orderForTicket), ['Combo 1: Sem Tomate, Bacon · Cortar ao meio']);
+assert.deepEqual(ticketLines({ ...orderForTicket, combos: [completeCombo] }), ['Combo 1: Completo - bife 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante 200 ml']);
 assert.equal(ticketHeader(orderForTicket), 'RETIRADA DE MARIA DA SILVA');
 
 console.log('Todos os testes do pedido passaram.');
