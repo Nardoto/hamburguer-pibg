@@ -21,6 +21,12 @@ No link público do domingo há o botão **Já comprou? Recuperar comprovante**.
 
 Na recepção, a equipe também pode buscar o pedido normalmente e usar **Mostrar QR** para abrir de novo o comprovante no próprio celular.
 
+## Retirada e destino do pedido
+
+Na compra, a pessoa escolhe **Comer no local** ou **Para viagem**. A escolha aparece no comprovante, na recepção e nos cartões de ajustes da cozinha.
+
+Ao usar **Ler QR Code e entregar**, a recepção registra a retirada automaticamente. Se o mesmo QR Code for lido de novo, o painel avisa que ele já foi entregue. A busca digitada continua apenas para conferir ou entregar manualmente.
+
 ## Criar os acessos privados
 
 No painel do Supabase, abra **Authentication > Users > Add user** e crie uma única conta compartilhada, por exemplo `equipe@pibg.com`. Ela será usada pelos voluntários na recepção, cozinha e para abrir cada novo domingo.

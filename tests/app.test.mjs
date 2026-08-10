@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { calculateTotal, canCreateSunday, createCombo, customizeCombo, hasKitchenAdjustment, isAdminRole, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, setKitchenStatus } from '../app.js';
+import { calculateTotal, canCreateSunday, createCombo, customizeCombo, hasKitchenAdjustment, isAdminRole, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -40,23 +40,26 @@ assert.equal(saleUrl('https://hamburguerpibg.com/?painel=equipe', 'domingo-abc')
 assert.equal(saleDateLabel('2026-08-16'), 'Domingo, 16 de agosto');
 assert.equal(canCreateSunday(null), true);
 assert.equal(canCreateSunday({ id: 'domingo-atual' }), false);
+assert.equal(serviceModeLabel('local'), 'Comer no local');
+assert.equal(serviceModeLabel('takeaway'), 'Para viagem');
 
 assert.deepEqual(orderPayload({
-  customer: { name: ' Ana ', phone: '(11) 99999-0000 ' },
+  customer: { name: ' Ana ', phone: '(11) 99999-0000 ' }, serviceMode: 'takeaway',
   combos: [{ removed: ['Tomate'], note: 'Cortar ao meio' }],
 }), {
   customer_name: 'Ana',
   customer_phone: '(11) 99999-0000',
+  service_mode: 'takeaway',
   items: [{ removed: ['Tomate'], note: 'Cortar ao meio' }],
 });
 
 assert.deepEqual(orderFromDatabase({
   id: 'order-1', code: 'PIBG-0001', customer_name: 'Ana', customer_phone: '(11) 99999-0000',
-  source: 'manual', kitchen_status: 'grill', kitchen_note: '2 completos', withdrawn_at: null,
+  source: 'manual', service_mode: 'takeaway', kitchen_status: 'grill', kitchen_note: '2 completos', withdrawn_at: null,
   items: [{ removed: ['Tomate'], note: '' }],
 }), {
   id: 'order-1', code: 'PIBG-0001', customer: { name: 'Ana', phone: '(11) 99999-0000' },
-  source: 'manual', kitchenStatus: 'grill', kitchenNote: '2 completos', withdrawn: false,
+  source: 'manual', serviceMode: 'takeaway', kitchenStatus: 'grill', kitchenNote: '2 completos', withdrawn: false,
   combos: [{ mode: 'customized', removed: ['Tomate'], note: '' }],
 });
 
@@ -64,7 +67,7 @@ assert.deepEqual(recoveryOrderFromDatabase({
   code: 'PIBG-0025', customer_name: 'Ana', customer_phone: '(11) 99999-0000',
   items: [{ removed: [], note: '' }, { removed: ['Queijo muçarela'], note: 'Bem passado' }],
 }), {
-  code: 'PIBG-0025', customer: { name: 'Ana', phone: '(11) 99999-0000' },
+  code: 'PIBG-0025', customer: { name: 'Ana', phone: '(11) 99999-0000' }, serviceMode: 'local',
   source: 'online', kitchenStatus: 'new', kitchenNote: '', withdrawn: false,
   combos: [
     { mode: 'complete', removed: [], note: '' },
@@ -73,11 +76,12 @@ assert.deepEqual(recoveryOrderFromDatabase({
 });
 
 assert.deepEqual(orderRpcPayload({
-  customer: { name: 'Ana', phone: '(11) 99999-0000' },
+  customer: { name: 'Ana', phone: '(11) 99999-0000' }, serviceMode: 'local',
   combos: [{ removed: [], note: '' }],
 }), {
   p_customer_name: 'Ana',
   p_customer_phone: '(11) 99999-0000',
+  p_service_mode: 'local',
   p_items: [{ removed: [], note: '' }],
 });
 

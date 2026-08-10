@@ -2,6 +2,7 @@ export function orderPayload(order) {
   return {
     customer_name: order.customer.name.trim(),
     customer_phone: order.customer.phone.trim(),
+    service_mode: order.serviceMode === 'takeaway' ? 'takeaway' : 'local',
     items: order.combos.map((combo) => ({
       removed: [...combo.removed],
       note: combo.note.trim(),
@@ -14,6 +15,7 @@ export function orderRpcPayload(order) {
   return {
     p_customer_name: payload.customer_name,
     p_customer_phone: payload.customer_phone,
+    p_service_mode: payload.service_mode,
     p_items: payload.items,
   };
 }
@@ -27,6 +29,7 @@ export function orderFromDatabase(row) {
     code: row.code,
     customer: { name: row.customer_name, phone: row.customer_phone },
     source: row.source,
+    serviceMode: row.service_mode === 'takeaway' ? 'takeaway' : 'local',
     kitchenStatus: row.kitchen_status,
     kitchenNote: row.kitchen_note,
     withdrawn: Boolean(row.withdrawn_at),
