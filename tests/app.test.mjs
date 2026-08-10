@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { calculateTotal, canCreateSunday, createCombo, customizeCombo, deliveryFeedback, hasKitchenAdjustment, isAdminRole, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
+import { calculateTotal, canCreateSunday, createCombo, customizeCombo, deliveryFeedback, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -43,6 +43,10 @@ assert.equal(canCreateSunday({ id: 'domingo-atual' }), false);
 assert.equal(serviceModeLabel('local'), 'Comer no local');
 assert.equal(serviceModeLabel('takeaway'), 'Para viagem');
 assert.equal(deliveryFeedback({ code: 'PIBG-0025', customer: { name: 'Ana' }, serviceMode: 'takeaway' }), 'PIBG-0025 entregue · Ana · Para viagem');
+assert.equal(teamTabLabel('orders'), 'Pedidos');
+assert.equal(teamTabLabel('sales'), 'Vender');
+assert.equal(lastPurchaseLabel(null, new Date('2026-08-10T12:00:00Z')), 'Seja o primeiro a comprar');
+assert.equal(lastPurchaseLabel('2026-08-10T11:58:40Z', new Date('2026-08-10T12:00:00Z')), 'Última compra há 1 min');
 
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' }, serviceMode: 'takeaway',

@@ -65,13 +65,13 @@ export function createPibgClient() {
 
 export async function fetchActiveSale(client, publicToken) {
   if (!publicToken) return null;
-  const { data, error } = await client.rpc('active_sale_status', { p_public_token: publicToken });
+  const { data, error } = await client.rpc('live_sale_status', { p_public_token: publicToken });
   if (error) throw operationError(error, 'Não foi possível consultar o estoque.');
   return data?.[0];
 }
 
 export async function fetchTeamSale(client) {
-  const { data, error } = await client.rpc('team_active_sale_status');
+  const { data, error } = await client.rpc('team_live_sale_status');
   if (error) throw operationError(error, 'Não foi possível consultar a venda atual.');
   return data?.[0];
 }

@@ -112,6 +112,22 @@ export function deliveryFeedback(order) {
   return `${order.code} entregue · ${order.customer.name} · ${serviceModeLabel(order.serviceMode)}`;
 }
 
+export function teamTabLabel(tab) {
+  return ({ orders: 'Pedidos', sales: 'Vender', settings: 'Configurações' })[tab] ?? 'Pedidos';
+}
+
+export function lastPurchaseLabel(lastPurchaseAt, now = new Date()) {
+  if (!lastPurchaseAt) return 'Seja o primeiro a comprar';
+  const timestamp = new Date(lastPurchaseAt);
+  if (Number.isNaN(timestamp.getTime())) return 'Compra recente';
+  const minutes = Math.max(0, Math.floor((now.getTime() - timestamp.getTime()) / 60000));
+  if (minutes < 1) return 'Última compra agora';
+  if (minutes === 1) return 'Última compra há 1 min';
+  if (minutes < 60) return `Última compra há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return `Última compra há ${hours} h`;
+}
+
 export function setKitchenStatus(order, kitchenStatus) {
   return { ...order, kitchenStatus };
 }
@@ -130,6 +146,7 @@ if (typeof document !== 'undefined') {
     recoveredOrders: [],
     teamAuthorized: false,
     teamRole: null,
+    teamTab: 'orders',
     teamSearch: '',
     scanning: false,
     qrScanner: null,
@@ -158,14 +175,15 @@ if (typeof document !== 'undefined') {
 
   function renderHome() {
     if (!state.sale) {
-      return `<div class="app-shell"><section class="page"><header class="page-head"><div class="brand">HAMBÚRGUER <span>PIBG</span></div><button class="menu-button" data-action="open-team" aria-label="Abrir painel da equipe"></button></header><div class="sale-closed"><span>VENDA ENCERRADA</span><h1>Este link não é do domingo atual.</h1><p>Use o QR Code divulgado pela igreja para abrir a venda certa. Cada domingo possui um link e estoque próprios.</p></div></section></div>`;
+      return `<div class="app-shell"><section class="page"><header class="page-head"><div class="brand">HAMBÚRGUER <span>PIBG</span></div></header><div class="sale-closed"><span>VENDA ENCERRADA</span><h1>Este link não é do domingo atual.</h1><p>Use o QR Code divulgado pela igreja para abrir a venda certa. Cada domingo possui um link e estoque próprios.</p></div></section></div>`;
     }
     return `<div class="app-shell"><section class="page">
-      <header class="page-head"><div class="brand">HAMBÚRGUER <span>PIBG</span></div><button class="menu-button" data-action="open-team" aria-label="Abrir painel da equipe"></button></header>
-      <div class="hero-image"><div class="hero-topline"><span class="pill date-pill"><i class="live-dot"></i>RETIRADA · ${saleDateLabel(state.sale.event_date).toUpperCase()}</span><span class="pill">ESTOQUE AO VIVO</span></div><div class="hero-caption"><p>COMBO ARTESANAL</p><h1>FOME DE<br>VERDADE.<small>COMPRA SEM FILA.</small></h1></div></div>
+      <header class="page-head"><div class="brand">HAMBÚRGUER <span>PIBG</span></div></header>
+      <div class="sale-focus"><span>VENDAS PARA</span><strong>${saleDateLabel(state.sale.event_date).toUpperCase()}</strong><small>Retirada após o culto</small></div>
+      <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>VENDAS ABERTAS</span><span class="pill">ESTOQUE AO VIVO</span></div><div class="hero-caption"><p>COMBO ARTESANAL</p><h1>FOME DE<br>VERDADE.<small>COMPRA SEM FILA.</small></h1></div></div>
       <div class="content"><div class="product-copy"><div><h2>O combo que salva seu domingo.</h2><p class="pickup-day">Retirada após o culto · ${saleDateLabel(state.sale.event_date)}</p><p>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</p></div><div class="price">R$ 25</div></div>
       <div class="ingredient-tags"><span>140 g</span><span>Bacon crocante</span><span>Muçarela</span><span>Refri 200 ml</span></div>
-      <div class="stock-note"><strong>${availableStock()} combos disponíveis</strong><small>Estoque atualizado em tempo real</small></div>
+      <div class="stock-note stock-pulse"><strong><b>${availableStock()}</b> combos disponíveis</strong><small>${lastPurchaseLabel(state.sale.last_purchase_at)}<em>Estoque ao vivo</em></small></div>
       <button class="recover-link" data-action="open-recovery">Já comprou? Recuperar comprovante</button>
       <span class="section-label">QUANTOS COMBOS VOCÊ QUER?</span><div class="quantity"><button data-action="quantity" data-delta="-1" aria-label="Diminuir quantidade">−</button><output>${state.quantity}</output><button data-action="quantity" data-delta="1" aria-label="Aumentar quantidade">+</button></div></div>
       ${actionBar(`${state.quantity} ${state.quantity === 1 ? 'COMBO' : 'COMBOS'} · MONTE DO SEU JEITO`, state.quantity * COMBO_PRICE, 'start-order', 'Montar pedido')}
@@ -224,7 +242,13 @@ if (typeof document !== 'undefined') {
     const activeAdmin = state.sale ? `<div class="current-sale-card"><b>DOMINGO EM ANDAMENTO</b><strong>${escapeHtml(state.sale.name)}</strong><span>${saleDateLabel(state.sale.event_date)}</span><button class="danger-button" data-action="end-sale">Encerrar domingo atual</button><small>Faça isso somente após terminar as vendas e retiradas. Depois, o link público deixa de aceitar pedidos.</small></div><form id="stock-settings" class="team-form admin-divider"><label class="field"><span>QUANTIDADE TOTAL DE COMBOS</span><input id="stock-total" type="number" min="0" value="${state.sale.stock_total}"><small>Não pode ser menor que os pedidos já confirmados ou reservados.</small></label><button class="secondary-button" type="submit">Salvar quantidade</button><p class="error" id="stock-error" hidden></p></form><div class="sale-link-card"><b>LINK PÚBLICO DESTE DOMINGO</b><input readonly value="${escapeHtml(publicLink)}" aria-label="Link público da venda"><div id="sale-link-qr" aria-label="QR Code para abrir esta venda"></div><button class="secondary-button" data-action="copy-sale-link">Copiar link</button></div>` : createSunday;
     const adminSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span>${activeAdmin}</div>` : '';
     const operations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span>${deliveryNotice}<button class="scan-button" data-action="start-scan">Ler QR Code e entregar</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Crie um novo domingo na administração para liberar compra, recepção e cozinha.</p></div>`;
-    return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button>${state.sale ? '<button class="kitchen-button" data-action="open-kitchen">Cozinha</button>' : ''}</div><h1>Recepção<br>PIBG.</h1><p>Leia o QR Code do cliente: a retirada é registrada automaticamente.</p></header>${operations}${adminSettings}</section></div>`;
+    const orderOperations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span>${deliveryNotice}<button class="scan-button" data-action="start-scan">Ler QR Code e entregar</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Abra a aba Configurações para criar a nova venda.</p></div>`;
+    const salesOperations = state.sale ? `<div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Abra a aba Configurações para criar a nova venda.</p></div>`;
+    const teamTabs = `<nav class="team-tabs" aria-label="Seções da equipe"><button class="${state.teamTab === 'orders' ? 'active' : ''}" data-action="team-tab" data-tab="orders">Pedidos</button><button class="${state.teamTab === 'sales' ? 'active' : ''}" data-action="team-tab" data-tab="sales">Vender</button>${isAdminRole(state.teamRole) ? `<button class="${state.teamTab === 'settings' ? 'active' : ''}" data-action="team-tab" data-tab="settings">Configurações</button>` : ''}</nav>`;
+    const selectedOperations = state.teamTab === 'sales' ? salesOperations : state.teamTab === 'settings' && isAdminRole(state.teamRole) ? adminSettings : orderOperations;
+    const teamTitle = state.teamTab === 'sales' ? 'Venda<br>presencial.' : state.teamTab === 'settings' ? 'Configurações<br>da venda.' : 'Pedidos<br>e retirada.';
+    const teamDescription = state.teamTab === 'sales' ? 'Registre a compra feita na recepção e ela entra no mesmo estoque.' : state.teamTab === 'settings' ? 'Crie o domingo, ajuste o estoque e divulgue o link certo.' : 'Leia o QR Code ou busque o pedido para entregar rapidamente.';
+    return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button>${state.sale ? '<button class="kitchen-button" data-action="open-kitchen">Cozinha</button>' : ''}</div><h1>${teamTitle}</h1><p>${teamDescription}</p></header>${teamTabs}${selectedOperations}</section></div>`;
   }
 
   function renderKitchenOrder(order) {
@@ -516,6 +540,7 @@ if (typeof document !== 'undefined') {
         }
       }
       if (action === 'open-team') { state.screen = 'team'; render(); }
+      if (action === 'team-tab') { stopQrScanner(); state.teamTab = element.dataset.tab; render(); }
       if (action === 'show-ticket') {
         const order = state.orders.find((item) => item.id === element.dataset.id);
         if (order) { state.activeOrder = order; state.screen = 'confirmation'; render(); }
@@ -625,6 +650,7 @@ if (typeof document !== 'undefined') {
       if (!Number.isInteger(total) || total < 0) { error.hidden = false; error.textContent = 'Informe uma quantidade inteira igual ou maior que zero.'; return; }
       try {
         state.sale = await updateStockTotal(supabase, total);
+        await refreshSale();
         render();
       } catch (stockError) {
         error.hidden = false;
