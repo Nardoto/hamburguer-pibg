@@ -44,6 +44,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .hero-caption h1 { margin: 0; font-family: 'Barlow Condensed', Arial, sans-serif; font-size: clamp(3rem, 13vw, 5.5rem); line-height: .75; letter-spacing: -.07em; text-transform: uppercase; }
 .hero-caption h1 small { display: block; color: var(--gold); font-size: .42em; letter-spacing: -.025em; margin-top: 8px; }
 .hero-caption strong { display: block; color: var(--gold); font-family: 'Barlow Condensed', Arial, sans-serif; font-size: clamp(3.4rem, 14vw, 5.8rem); line-height: .78; letter-spacing: -.04em; }
+.hero-details { display: grid; gap: 8px; max-width: 520px; margin-top: 13px; color: #fff7e9; }.hero-details b { color: #8ee1ae; font-size: .72rem; }.hero-details > span { font-size: .72rem; line-height: 1.45; }.hero-details small { color: #ead4b7; font-size: .62rem; font-weight: 800; }.hero-details .ingredient-tags { margin: 0; gap: 6px; }.hero-details .ingredient-tags i { padding: 6px 8px; border-radius: 6px; background: rgba(255,244,221,.16); color: #fff4dd; font-size: .6rem; font-style: normal; font-weight: 800; }
 
 .content { padding: 22px 22px 130px; }
 .product-copy { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: start; }

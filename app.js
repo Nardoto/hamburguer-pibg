@@ -179,13 +179,11 @@ if (typeof document !== 'undefined') {
     }
     return `<div class="app-shell"><section class="page">
       <header class="page-head public-head"><div class="public-brand"><img class="church-logo" src="./assets/logo-white.png" alt="PIBG — Primeira Igreja Batista em Goiabeiras"><span>Cantina dos Casais</span></div></header>
-      <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>${saleDateLabel(state.sale.event_date).toUpperCase()}</span><span class="pill">${availableStock()} DISPONÍVEIS</span></div><div class="hero-caption"><p>HAMBÚRGUER ARTESANAL</p><strong>R$ 25</strong></div></div>
-      <div class="content"><div class="product-copy"><div><p class="pickup-day">Retirada após o culto · ${saleDateLabel(state.sale.event_date)}</p><p>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</p></div></div>
-      <div class="ingredient-tags"><span>140 g</span><span>Bacon crocante</span><span>Muçarela</span><span>Refri 200 ml</span></div>
-      <div class="stock-note stock-pulse"><strong><b>${availableStock()}</b> combos disponíveis</strong><small>${lastPurchaseLabel(state.sale.last_purchase_at)}<em>Estoque ao vivo</em></small></div>
+      <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>${saleDateLabel(state.sale.event_date).toUpperCase()}</span></div><div class="hero-caption"><p>HAMBÚRGUER ARTESANAL</p><strong>R$ 25</strong><div class="hero-details"><b>Retirada após o culto · ${saleDateLabel(state.sale.event_date)}</b><span>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</span><div class="ingredient-tags"><i>140 g</i><i>Bacon crocante</i><i>Muçarela</i><i>Refri 200 ml</i></div><small>${lastPurchaseLabel(state.sale.last_purchase_at)}</small></div></div></div>
+      <div class="content">
       <button class="recover-link" data-action="open-recovery">Já comprou? Recuperar comprovante</button>
       <span class="section-label">QUANTOS COMBOS VOCÊ QUER?</span><div class="quantity"><button data-action="quantity" data-delta="-1" aria-label="Diminuir quantidade">−</button><output>${state.quantity}</output><button data-action="quantity" data-delta="1" aria-label="Aumentar quantidade">+</button></div></div>
-      ${actionBar(`${state.quantity} ${state.quantity === 1 ? 'COMBO' : 'COMBOS'}`, state.quantity * COMBO_PRICE, 'start-order', 'Montar pedido')}
+      ${actionBar(`${availableStock()} COMBOS DISPONÍVEIS · ${state.quantity} ${state.quantity === 1 ? 'COMBO' : 'COMBOS'}`, state.quantity * COMBO_PRICE, 'start-order', 'Montar pedido')}
     </section></div>`;
   }
 
