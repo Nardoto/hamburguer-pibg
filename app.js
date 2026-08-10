@@ -31,6 +31,19 @@ export function markWithdrawn(order) {
   return { ...order, withdrawn: true };
 }
 
+export function ticketFilename(order) {
+  return `comprovante-hamburguer-pibg-${order.code}.pdf`;
+}
+
+export function ticketLines(order) {
+  return order.combos.map((combo, index) => {
+    const details = [];
+    if (combo.removed.length) details.push(`Sem ${combo.removed.join(', ')}`);
+    if (combo.note) details.push(combo.note);
+    return `Combo ${index + 1}: ${details.length ? details.join(' · ') : 'Completo'}`;
+  });
+}
+
 if (typeof document !== 'undefined') {
   const STOCK_LIMIT = 150;
   const state = {
@@ -100,7 +113,7 @@ if (typeof document !== 'undefined') {
 
   function renderConfirmation() {
     const order = state.activeOrder;
-    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está reservado. Ao final do culto, mostre este código para a equipe.</p><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'open-team', 'Painel da equipe')}</section></div>`;
+    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está reservado. Ao final do culto, mostre este código para a equipe.</p><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'open-team', 'Painel da equipe')}</section></div>`;
   }
 
   function renderTeamLogin() {
@@ -110,9 +123,9 @@ if (typeof document !== 'undefined') {
   function renderTeam() {
     const normalizedSearch = state.teamSearch.trim().toLowerCase();
     const orders = state.orders.filter((order) => !normalizedSearch || `${order.code} ${order.customer.name} ${order.customer.phone}`.toLowerCase().includes(normalizedSearch));
-    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-code="${order.code}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
+    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${order.combos.some((combo) => combo.mode === 'customized') ? '<br>Pedido com ajustes: confira antes de entregar.' : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-code="${order.code}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
     const sold = state.orders.reduce((total, order) => total + order.combos.length, 0);
-    return `<div class="app-shell"><section class="page"><header class="team-top"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><h1>Painel<br>da equipe.</h1><p>Vendas on-line e presenciais no mesmo lugar.</p></header><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><button class="primary-button" type="submit">Registrar pagamento e pedido</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
+    return `<div class="app-shell"><section class="page"><header class="team-top"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><h1>Painel<br>administrativo.</h1><p>Vendas on-line e presenciais no mesmo lugar.</p></header><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><button class="primary-button" type="submit">Registrar pagamento e pedido</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
   }
 
   function render() {
@@ -145,6 +158,56 @@ if (typeof document !== 'undefined') {
     };
   }
 
+  function downloadTicket(order) {
+    const JsPdf = window.jspdf?.jsPDF;
+    if (!JsPdf) {
+      window.alert('Não foi possível preparar o PDF agora. Tente novamente em alguns instantes.');
+      return;
+    }
+    const pdf = new JsPdf({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    pdf.setFillColor(26, 17, 14);
+    pdf.rect(0, 0, pageWidth, 44, 'F');
+    pdf.setTextColor(255, 194, 71);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(25);
+    pdf.text('HAMBURGUER PIBG', 15, 19);
+    pdf.setTextColor(255, 244, 221);
+    pdf.setFontSize(10);
+    pdf.text('COMPROVANTE DE RETIRADA', 15, 30);
+    pdf.setTextColor(41, 23, 18);
+    pdf.setFontSize(12);
+    pdf.text(`Pedido de: ${order.customer.name}`, 15, 58);
+    pdf.text(`Celular: ${order.customer.phone}`, 15, 66);
+    pdf.setFillColor(255, 194, 71);
+    pdf.roundedRect(15, 77, pageWidth - 30, 38, 4, 4, 'F');
+    pdf.setTextColor(41, 23, 18);
+    pdf.setFontSize(9);
+    pdf.text('CODIGO DE RETIRADA', pageWidth / 2, 89, { align: 'center' });
+    pdf.setFontSize(28);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(order.code, pageWidth / 2, 105, { align: 'center' });
+    pdf.setTextColor(41, 23, 18);
+    pdf.setFontSize(11);
+    pdf.text('Seu pedido', 15, 130);
+    let y = 139;
+    ticketLines(order).forEach((line) => {
+      const lines = pdf.splitTextToSize(line, pageWidth - 30);
+      pdf.text(lines, 15, y);
+      y += lines.length * 6 + 3;
+    });
+    pdf.setDrawColor(229, 201, 158);
+    pdf.line(15, y + 4, pageWidth - 15, y + 4);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(13);
+    pdf.text(`Total: ${money(calculateTotal(order.combos))}`, 15, y + 16);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.setTextColor(118, 80, 66);
+    pdf.text('Apresente este comprovante no celular para retirar seu pedido ao final do culto.', 15, y + 29, { maxWidth: pageWidth - 30 });
+    pdf.save(ticketFilename(order));
+  }
+
   function bindEvents() {
     app.querySelectorAll('[data-action]').forEach((element) => element.addEventListener('click', () => {
       const action = element.dataset.action;
@@ -160,6 +223,7 @@ if (typeof document !== 'undefined') {
       if (action === 'to-pix') { const name = document.querySelector('#customer-name').value.trim(); const phone = document.querySelector('#customer-phone').value.trim(); const error = document.querySelector('#form-error'); if (!name || phone.replace(/\D/g, '').length < 10) { error.hidden = false; error.textContent = 'Informe seu nome e um celular válido para continuar.'; return; } state.customer = { name, phone }; createActiveOrder(); state.screen = 'pix'; render(); }
       if (action === 'confirm-payment') { state.orders.push(state.activeOrder); state.screen = 'confirmation'; render(); }
       if (action === 'open-team') { state.screen = 'team'; render(); }
+      if (action === 'download-ticket') { downloadTicket(state.activeOrder); }
       if (action === 'withdraw') { state.orders = state.orders.map((order) => order.code === element.dataset.code ? markWithdrawn(order) : order); render(); }
     }));
 
