@@ -1,9 +1,11 @@
 import {
   confirmOrder,
+  createSaleEvent,
   createManualOrder,
   createPibgClient,
   fetchActiveSale,
   fetchTeamRole,
+  fetchTeamSale,
   fetchTeamOrders,
   reserveOrder,
   signInTeam,
@@ -83,6 +85,12 @@ export function isAdminRole(role) {
   return role === 'admin';
 }
 
+export function saleUrl(baseUrl, publicToken) {
+  const url = new URL(baseUrl);
+  url.searchParams.set('v', publicToken);
+  return url.toString();
+}
+
 export function setKitchenStatus(order, kitchenStatus) {
   return { ...order, kitchenStatus };
 }
@@ -102,14 +110,15 @@ if (typeof document !== 'undefined') {
     scanning: false,
     qrStream: null,
     qrScanFrame: null,
-    sale: { stock_total: 150, reserved_quantity: 0, confirmed_quantity: 0 },
+    sale: null,
+    publicToken: new URLSearchParams(window.location.search).get('v'),
   };
 
   const app = document.querySelector('#app');
   const supabase = createPibgClient();
   const money = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
-  const availableStock = () => Math.max(state.sale.stock_total - state.sale.reserved_quantity - state.sale.confirmed_quantity, 0);
+  const availableStock = () => Math.max((state.sale?.stock_total ?? 0) - (state.sale?.reserved_quantity ?? 0) - (state.sale?.confirmed_quantity ?? 0), 0);
 
   function comboDescription(combo) {
     const parts = [];
@@ -123,6 +132,9 @@ if (typeof document !== 'undefined') {
   }
 
   function renderHome() {
+    if (!state.sale) {
+      return `<div class="app-shell"><section class="page"><header class="page-head"><div class="brand">HAMBÚRGUER <span>PIBG</span></div><button class="menu-button" data-action="open-team" aria-label="Abrir painel da equipe"></button></header><div class="sale-closed"><span>VENDA ENCERRADA</span><h1>Este link não é do domingo atual.</h1><p>Use o QR Code divulgado pela igreja para abrir a venda certa. Cada domingo possui um link e estoque próprios.</p></div></section></div>`;
+    }
     return `<div class="app-shell"><section class="page">
       <header class="page-head"><div class="brand">HAMBÚRGUER <span>PIBG</span></div><button class="menu-button" data-action="open-team" aria-label="Abrir painel da equipe"></button></header>
       <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>VENDA DE DOMINGO</span><span class="pill">ESTOQUE AO VIVO</span></div><div class="hero-caption"><p>COMBO ARTESANAL</p><h1>FOME DE<br>VERDADE.<small>COMPRA SEM FILA.</small></h1></div></div>
@@ -173,7 +185,8 @@ if (typeof document !== 'undefined') {
     const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
     const sold = state.sale.confirmed_quantity;
     const scanner = state.scanning ? `<div class="scan-panel"><video id="scan-video" playsinline muted></video><p>Aponte a câmera para o QR Code do comprovante.</p><button class="secondary-button" data-action="stop-scan">Cancelar leitura</button></div>` : '';
-    const stockSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span><form id="stock-settings" class="team-form"><label class="field"><span>QUANTIDADE TOTAL DE COMBOS</span><input id="stock-total" type="number" min="0" value="${state.sale.stock_total}"><small>Não pode ser menor que os pedidos já confirmados ou reservados.</small></label><button class="secondary-button" type="submit">Salvar quantidade</button><p class="error" id="stock-error" hidden></p></form></div>` : '';
+    const publicLink = state.sale?.public_token ? saleUrl(window.location.href, state.sale.public_token) : '';
+    const stockSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span><form id="start-sale" class="team-form"><label class="field"><span>NOVO DOMINGO</span><input id="new-sale-name" value="Hambúrguer PIBG — próximo domingo" maxlength="100"><small>Criar uma nova venda encerra o link e os pedidos do domingo anterior.</small></label><label class="field"><span>DATA DA VENDA</span><input id="new-sale-date" type="date" required></label><label class="field"><span>QUANTIDADE INICIAL</span><input id="new-sale-stock" type="number" min="1" value="150"></label><button class="primary-button" type="submit">Criar novo domingo</button><p class="error" id="new-sale-error" hidden></p></form>${state.sale ? `<form id="stock-settings" class="team-form admin-divider"><label class="field"><span>QUANTIDADE TOTAL DE COMBOS</span><input id="stock-total" type="number" min="0" value="${state.sale.stock_total}"><small>Não pode ser menor que os pedidos já confirmados ou reservados.</small></label><button class="secondary-button" type="submit">Salvar quantidade</button><p class="error" id="stock-error" hidden></p></form><div class="sale-link-card"><b>LINK PÚBLICO DESTE DOMINGO</b><input readonly value="${escapeHtml(publicLink)}" aria-label="Link público da venda"><div id="sale-link-qr" aria-label="QR Code para abrir esta venda"></div><button class="secondary-button" data-action="copy-sale-link">Copiar link</button></div>` : ''}</div>` : '';
     return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><button class="kitchen-button" data-action="open-kitchen">Cozinha</button></div><h1>Recepção<br>PIBG.</h1><p>Leia o QR Code do cliente, confira o pedido e marque a retirada.</p></header><div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span><button class="scan-button" data-action="start-scan">Ler QR Code do cliente</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div>${stockSettings}<div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
   }
 
@@ -195,6 +208,7 @@ if (typeof document !== 'undefined') {
     app.innerHTML = views[state.screen]();
     bindEvents();
     renderPickupQr();
+    renderSaleLinkQr();
   }
 
   function syncCurrentCombo() {
@@ -227,10 +241,12 @@ if (typeof document !== 'undefined') {
 
   async function refreshSale(shouldRender = false) {
     try {
-      state.sale = await fetchActiveSale(supabase);
+      state.sale = state.teamAuthorized ? await fetchTeamSale(supabase) : await fetchActiveSale(supabase, state.publicToken);
       if (shouldRender && ['home', 'team', 'kitchen'].includes(state.screen)) render();
     } catch (error) {
+      state.sale = null;
       console.error('Falha ao atualizar o estoque.', error);
+      if (shouldRender && ['home', 'team', 'kitchen'].includes(state.screen)) render();
     }
   }
 
@@ -260,6 +276,15 @@ if (typeof document !== 'undefined') {
     if (!window.QRCode) { target.textContent = state.activeOrder.code; return; }
     target.replaceChildren();
     new window.QRCode(target, { text: state.activeOrder.code, width: 132, height: 132, colorDark: '#1a110e', colorLight: '#fffdf9', correctLevel: window.QRCode.CorrectLevel.M });
+  }
+
+  function renderSaleLinkQr() {
+    const target = app.querySelector('#sale-link-qr');
+    if (!target || !state.sale?.public_token) return;
+    const link = saleUrl(window.location.href, state.sale.public_token);
+    if (!window.QRCode) { target.textContent = link; return; }
+    target.replaceChildren();
+    new window.QRCode(target, { text: link, width: 132, height: 132, colorDark: '#1a110e', colorLight: '#fffdf9', correctLevel: window.QRCode.CorrectLevel.M });
   }
 
   function stopQrScanner() {
@@ -393,7 +418,7 @@ if (typeof document !== 'undefined') {
         state.customer = { name, phone };
         createActiveOrder();
         try {
-          const reservation = await reserveOrder(supabase, state.activeOrder);
+          const reservation = await reserveOrder(supabase, state.activeOrder, state.publicToken);
           state.activeOrder = { ...state.activeOrder, id: reservation.order_id, accessToken: reservation.access_token };
           await refreshSale();
           state.screen = 'pix';
@@ -435,6 +460,8 @@ if (typeof document !== 'undefined') {
       try {
         await signInTeam(supabase, email, password);
         state.teamRole = await fetchTeamRole(supabase);
+        state.sale = await fetchTeamSale(supabase);
+        state.publicToken = state.sale.public_token;
         state.orders = await fetchTeamOrders(supabase);
         state.teamAuthorized = true;
         state.screen = 'team';
@@ -484,6 +511,28 @@ if (typeof document !== 'undefined') {
         error.hidden = false;
         error.textContent = stockError.message;
       }
+    });
+    app.querySelector('#start-sale')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const name = document.querySelector('#new-sale-name').value.trim();
+      const eventDate = document.querySelector('#new-sale-date').value;
+      const stockTotal = Number(document.querySelector('#new-sale-stock').value);
+      const error = document.querySelector('#new-sale-error');
+      if (!name || !eventDate || !Number.isInteger(stockTotal) || stockTotal < 1) { error.hidden = false; error.textContent = 'Informe nome, data e uma quantidade inicial válida.'; return; }
+      if (!window.confirm('Criar este novo domingo? O link da venda anterior será encerrado.')) return;
+      try {
+        state.sale = await createSaleEvent(supabase, { name, eventDate, stockTotal });
+        state.publicToken = state.sale.public_token;
+        state.orders = await fetchTeamOrders(supabase);
+        render();
+      } catch (saleError) {
+        error.hidden = false;
+        error.textContent = saleError.message;
+      }
+    });
+    app.querySelector('[data-action="copy-sale-link"]')?.addEventListener('click', async () => {
+      const link = saleUrl(window.location.href, state.sale.public_token);
+      try { await navigator.clipboard.writeText(link); window.alert('Link copiado. Agora você pode enviar no grupo ou gerar o cartaz com este QR Code.'); } catch { window.prompt('Copie este link:', link); }
     });
   }
 

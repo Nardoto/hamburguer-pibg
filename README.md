@@ -6,6 +6,16 @@ Projeto: `hcehptespejazgapynus` — [abrir painel](https://supabase.com/dashboar
 
 O banco guarda a venda ativa, reservas, pedidos confirmados, retirada e etapas da cozinha. A venda inicial começa com 150 combos de R$ 25,00.
 
+## Novo domingo, novo link
+
+No seu painel de administrador, preencha **Novo domingo** com a data e a quantidade inicial. Ao confirmar, o sistema:
+
+1. Encerra a venda anterior e expira reservas que não foram pagas.
+2. Cria uma venda nova, com estoque e pedidos próprios.
+3. Mostra um link e QR Code novos para enviar no grupo e colocar na igreja.
+
+O link do domingo anterior passa a mostrar “Venda encerrada” e não permite novas compras. A recepção e a cozinha passam a ver somente os pedidos do domingo atual.
+
 ## Criar os acessos privados
 
 No painel do Supabase, abra **Authentication > Users > Add user** e crie:

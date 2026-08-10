@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { calculateTotal, createCombo, customizeCombo, hasKitchenAdjustment, isAdminRole, markWithdrawn, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, setKitchenStatus } from '../app.js';
+import { calculateTotal, createCombo, customizeCombo, hasKitchenAdjustment, isAdminRole, markWithdrawn, saleUrl, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -35,6 +35,7 @@ assert.equal(hasKitchenAdjustment({ ...orderForTicket, combos: [completeCombo], 
 assert.equal(hasKitchenAdjustment({ combos: [{ mode: 'complete' }], kitchenNote: '' }), false);
 assert.equal(isAdminRole('admin'), true);
 assert.equal(isAdminRole('team'), false);
+assert.equal(saleUrl('https://hamburguerpibg.com/', 'domingo-abc'), 'https://hamburguerpibg.com/?v=domingo-abc');
 
 assert.deepEqual(orderPayload({
   customer: { name: ' Ana ', phone: '(11) 99999-0000 ' },

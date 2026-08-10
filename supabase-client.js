@@ -48,14 +48,21 @@ export function createPibgClient() {
   return globalThis.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY);
 }
 
-export async function fetchActiveSale(client) {
-  const { data, error } = await client.rpc('active_sale_status');
+export async function fetchActiveSale(client, publicToken) {
+  if (!publicToken) return null;
+  const { data, error } = await client.rpc('active_sale_status', { p_public_token: publicToken });
   if (error) throw operationError(error, 'Não foi possível consultar o estoque.');
   return data?.[0];
 }
 
-export async function reserveOrder(client, order) {
-  const { data, error } = await client.rpc('reserve_order', orderRpcPayload(order));
+export async function fetchTeamSale(client) {
+  const { data, error } = await client.rpc('team_active_sale_status');
+  if (error) throw operationError(error, 'Não foi possível consultar a venda atual.');
+  return data?.[0];
+}
+
+export async function reserveOrder(client, order, publicToken) {
+  const { data, error } = await client.rpc('reserve_order', { ...orderRpcPayload(order), p_public_token: publicToken });
   if (error) throw operationError(error, 'Não foi possível reservar os combos.');
   return data?.[0];
 }
@@ -106,5 +113,11 @@ export async function withdrawOrder(client, orderId) {
 export async function updateStockTotal(client, stockTotal) {
   const { data, error } = await client.rpc('set_active_stock_total', { p_stock_total: stockTotal });
   if (error) throw operationError(error, 'Não foi possível atualizar a quantidade de combos.');
+  return data?.[0];
+}
+
+export async function createSaleEvent(client, { name, eventDate, stockTotal }) {
+  const { data, error } = await client.rpc('start_sale_event', { p_name: name.trim(), p_event_date: eventDate, p_stock_total: stockTotal });
+  if (error) throw operationError(error, 'Não foi possível criar o novo domingo.');
   return data?.[0];
 }
