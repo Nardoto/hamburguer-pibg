@@ -15,6 +15,12 @@ Quando o domingo terminar, use **Encerrar domingo atual** no painel. Só depois 
 
 Enquanto houver domingo ativo, o banco bloqueia a criação de outro. Ao encerrar, reservas que não foram pagas expiram, o link anterior mostra “Venda encerrada” e a recepção/cozinha param de exibir aquela venda.
 
+## Recuperar comprovante sem login
+
+No link público do domingo há o botão **Já comprou? Recuperar comprovante**. A pessoa informa o mesmo nome completo e celular usados no pedido e recebe novamente o QR Code e o PDF. A recuperação só considera pedidos confirmados do domingo que está aberto; não existe busca pública apenas por nome ou por código.
+
+Na recepção, a equipe também pode buscar o pedido normalmente e usar **Mostrar QR** para abrir de novo o comprovante no próprio celular.
+
 ## Criar os acessos privados
 
 No painel do Supabase, abra **Authentication > Users > Add user** e crie uma única conta compartilhada, por exemplo `equipe@pibg.com`. Ela será usada pelos voluntários na recepção, cozinha e para abrir cada novo domingo.

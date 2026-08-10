@@ -38,6 +38,18 @@ export function orderFromDatabase(row) {
   };
 }
 
+export function recoveryOrderFromDatabase(row) {
+  const order = orderFromDatabase({
+    ...row,
+    source: 'online',
+    kitchen_status: 'new',
+    kitchen_note: '',
+    withdrawn_at: null,
+  });
+  delete order.id;
+  return order;
+}
+
 function operationError(error, fallback) {
   if (!error) return null;
   return new Error(error.message || fallback);
@@ -65,6 +77,16 @@ export async function reserveOrder(client, order, publicToken) {
   const { data, error } = await client.rpc('reserve_order', { ...orderRpcPayload(order), p_public_token: publicToken });
   if (error) throw operationError(error, 'Não foi possível reservar os combos.');
   return data?.[0];
+}
+
+export async function recoverTickets(client, { publicToken, name, phone }) {
+  const { data, error } = await client.rpc('recover_tickets', {
+    p_public_token: publicToken,
+    p_customer_name: name.trim(),
+    p_customer_phone: phone.trim(),
+  });
+  if (error) throw operationError(error, 'Não foi possível procurar o comprovante agora.');
+  return (data ?? []).map(recoveryOrderFromDatabase);
 }
 
 export async function confirmOrder(client, orderId, accessToken) {

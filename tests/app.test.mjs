@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { calculateTotal, canCreateSunday, createCombo, customizeCombo, hasKitchenAdjustment, isAdminRole, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, ticketFilename, ticketLines, ticketHeader, kitchenDetails, setKitchenStatus } from '../app.js';
-import { orderFromDatabase, orderPayload, orderRpcPayload } from '../supabase-client.js';
+import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
 const completeCombo = createCombo();
 assert.equal(completeCombo.mode, 'complete');
@@ -58,6 +58,18 @@ assert.deepEqual(orderFromDatabase({
   id: 'order-1', code: 'PIBG-0001', customer: { name: 'Ana', phone: '(11) 99999-0000' },
   source: 'manual', kitchenStatus: 'grill', kitchenNote: '2 completos', withdrawn: false,
   combos: [{ mode: 'customized', removed: ['Tomate'], note: '' }],
+});
+
+assert.deepEqual(recoveryOrderFromDatabase({
+  code: 'PIBG-0025', customer_name: 'Ana', customer_phone: '(11) 99999-0000',
+  items: [{ removed: [], note: '' }, { removed: ['Queijo muçarela'], note: 'Bem passado' }],
+}), {
+  code: 'PIBG-0025', customer: { name: 'Ana', phone: '(11) 99999-0000' },
+  source: 'online', kitchenStatus: 'new', kitchenNote: '', withdrawn: false,
+  combos: [
+    { mode: 'complete', removed: [], note: '' },
+    { mode: 'customized', removed: ['Queijo muçarela'], note: 'Bem passado' },
+  ],
 });
 
 assert.deepEqual(orderRpcPayload({

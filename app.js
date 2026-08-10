@@ -8,6 +8,7 @@ import {
   fetchTeamSale,
   endSaleEvent,
   fetchTeamOrders,
+  recoverTickets,
   reserveOrder,
   signInTeam,
   updateKitchenStatus,
@@ -117,6 +118,7 @@ if (typeof document !== 'undefined') {
     customer: { name: '', phone: '' },
     orders: [],
     activeOrder: null,
+    recoveredOrders: [],
     teamAuthorized: false,
     teamRole: null,
     teamSearch: '',
@@ -153,6 +155,7 @@ if (typeof document !== 'undefined') {
       <div class="content"><div class="product-copy"><div><h2>O combo que salva seu domingo.</h2><p class="pickup-day">Retirada após o culto · ${saleDateLabel(state.sale.event_date)}</p><p>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</p></div><div class="price">R$ 25</div></div>
       <div class="ingredient-tags"><span>140 g</span><span>Bacon crocante</span><span>Muçarela</span><span>Refri 200 ml</span></div>
       <div class="stock-note"><strong>${availableStock()} combos disponíveis</strong><small>Estoque atualizado em tempo real</small></div>
+      <button class="recover-link" data-action="open-recovery">Já comprou? Recuperar comprovante</button>
       <span class="section-label">QUANTOS COMBOS VOCÊ QUER?</span><div class="quantity"><button data-action="quantity" data-delta="-1" aria-label="Diminuir quantidade">−</button><output>${state.quantity}</output><button data-action="quantity" data-delta="1" aria-label="Aumentar quantidade">+</button></div></div>
       ${actionBar(`${state.quantity} ${state.quantity === 1 ? 'COMBO' : 'COMBOS'} · MONTE DO SEU JEITO`, state.quantity * COMBO_PRICE, 'start-order', 'Montar pedido')}
     </section></div>`;
@@ -184,7 +187,14 @@ if (typeof document !== 'undefined') {
 
   function renderConfirmation() {
     const order = state.activeOrder;
-    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este QR Code para a equipe.</p><div class="pickup-date">RETIRADA · ${saleDateLabel(state.sale?.event_date).toUpperCase()}</div><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>A equipe escaneia e confirma sua retirada.</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'home', 'Voltar ao cardápio')}</section></div>`;
+    const returnTo = state.teamAuthorized ? 'open-team' : 'home';
+    const returnLabel = state.teamAuthorized ? 'Voltar à recepção' : 'Voltar ao cardápio';
+    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este QR Code para a equipe.</p><div class="pickup-date">RETIRADA · ${saleDateLabel(state.sale?.event_date).toUpperCase()}</div><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>A equipe escaneia e confirma sua retirada.</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), returnTo, returnLabel)}</section></div>`;
+  }
+
+  function renderRecovery() {
+    const results = state.recoveredOrders.length ? `<div class="recovery-results"><span class="section-label">PEDIDOS ENCONTRADOS</span><p>Escolha o pedido para mostrar novamente o QR Code e baixar o comprovante.</p>${state.recoveredOrders.map((order, index) => `<button class="recovered-order" data-action="open-recovered-ticket" data-index="${index}"><span><b>${escapeHtml(order.code)}</b><small>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</small></span><strong>Ver comprovante</strong></button>`).join('')}</div>` : `<form id="recover-ticket" novalidate><label class="field"><span>NOME COMPLETO DO PEDIDO</span><input id="recovery-name" autocomplete="name" placeholder="Nome usado na compra"></label><label class="field"><span>CELULAR CADASTRADO</span><input id="recovery-phone" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000"></label><p class="error" id="recovery-error" hidden></p><button class="primary-button recovery-submit" type="submit">Procurar meu comprovante</button></form>`;
+    return `<div class="app-shell"><section class="page"><div class="content recovery-page"><div class="step-head"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><h1 class="step-title">Esqueceu o<br>comprovante?</h1><p class="step-intro">Informe o mesmo nome e celular usados na compra. Mostraremos apenas seus pedidos confirmados deste domingo.</p></div>${results}</div></section></div>`;
   }
 
   function renderTeamLogin() {
@@ -194,7 +204,7 @@ if (typeof document !== 'undefined') {
   function renderTeam() {
     const normalizedSearch = state.teamSearch.trim().toLowerCase();
     const orders = state.orders.filter((order) => !normalizedSearch || `${order.code} ${order.customer.name} ${order.customer.phone}`.toLowerCase().includes(normalizedSearch));
-    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
+    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div><div class="order-actions"><button class="ticket-button" data-action="show-ticket" data-id="${order.id}">Mostrar QR</button>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div></div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
     const sold = state.sale?.confirmed_quantity ?? 0;
     const scanner = state.scanning ? `<div class="scan-panel"><div id="qr-reader"></div><p>Aponte a câmera para o QR Code do comprovante.</p><button class="secondary-button" data-action="stop-scan">Cancelar leitura</button></div>` : '';
     const publicLink = state.sale?.public_token ? saleUrl(window.location.href, state.sale.public_token) : '';
@@ -219,7 +229,7 @@ if (typeof document !== 'undefined') {
   }
 
   function render() {
-    const views = { home: renderHome, customize: renderCustomize, checkout: renderCheckout, pix: renderPix, confirmation: renderConfirmation, team: () => state.teamAuthorized ? renderTeam() : renderTeamLogin(), kitchen: () => state.teamAuthorized ? renderKitchen() : renderTeamLogin() };
+    const views = { home: renderHome, customize: renderCustomize, checkout: renderCheckout, pix: renderPix, confirmation: renderConfirmation, recovery: renderRecovery, team: () => state.teamAuthorized ? renderTeam() : renderTeamLogin(), kitchen: () => state.teamAuthorized ? renderKitchen() : renderTeamLogin() };
     app.innerHTML = views[state.screen]();
     bindEvents();
     renderPickupQr();
@@ -419,6 +429,8 @@ if (typeof document !== 'undefined') {
       if (action === 'quantity') { state.quantity = Math.max(1, Math.min(10, state.quantity + Number(element.dataset.delta))); render(); }
       if (action === 'start-order') { goToCustomization(); render(); }
       if (action === 'home') { stopQrScanner(); state.screen = 'home'; render(); }
+      if (action === 'open-recovery') { state.recoveredOrders = []; state.screen = 'recovery'; render(); }
+      if (action === 'open-recovered-ticket') { state.activeOrder = state.recoveredOrders[Number(element.dataset.index)]; state.screen = 'confirmation'; render(); }
       if (action === 'customize') { state.screen = 'customize'; render(); }
       if (action === 'checkout') { syncCurrentCombo(); state.screen = 'checkout'; render(); }
       if (action === 'select-combo') { syncCurrentCombo(); state.activeCombo = Number(element.dataset.index); render(); }
@@ -455,6 +467,10 @@ if (typeof document !== 'undefined') {
         }
       }
       if (action === 'open-team') { state.screen = 'team'; render(); }
+      if (action === 'show-ticket') {
+        const order = state.orders.find((item) => item.id === element.dataset.id);
+        if (order) { state.activeOrder = order; state.screen = 'confirmation'; render(); }
+      }
       if (action === 'open-kitchen') { stopQrScanner(); await refreshTeamOrders(); state.screen = 'kitchen'; render(); }
       if (action === 'end-sale') {
         if (!window.confirm('Encerrar este domingo? O link público deixará de aceitar pedidos e só então o próximo domingo poderá ser criado.')) return;
@@ -498,6 +514,29 @@ if (typeof document !== 'undefined') {
       } catch (loginError) {
         error.hidden = false;
         error.textContent = 'E-mail, senha ou autorização da equipe inválidos.';
+      }
+    });
+    app.querySelector('#recover-ticket')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const name = document.querySelector('#recovery-name').value.trim();
+      const phone = document.querySelector('#recovery-phone').value.trim();
+      const error = document.querySelector('#recovery-error');
+      if (!name || phone.replace(/\D/g, '').length < 10) {
+        error.hidden = false;
+        error.textContent = 'Informe o nome completo e o celular usados na compra.';
+        return;
+      }
+      try {
+        state.recoveredOrders = await recoverTickets(supabase, { publicToken: state.publicToken, name, phone });
+        if (!state.recoveredOrders.length) {
+          error.hidden = false;
+          error.textContent = 'Não encontramos pedido confirmado com esses dados neste domingo.';
+          return;
+        }
+        render();
+      } catch (recoveryError) {
+        error.hidden = false;
+        error.textContent = 'Não foi possível procurar o comprovante agora. Tente novamente.';
       }
     });
     app.querySelector('#order-search')?.addEventListener('input', (event) => { state.teamSearch = event.target.value; render(); document.querySelector('#order-search')?.focus(); });
