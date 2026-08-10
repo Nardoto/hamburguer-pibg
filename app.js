@@ -1,3 +1,15 @@
+import {
+  confirmOrder,
+  createManualOrder,
+  createPibgClient,
+  fetchActiveSale,
+  fetchTeamOrders,
+  reserveOrder,
+  signInTeam,
+  updateKitchenStatus,
+  withdrawOrder,
+} from './supabase-client.js';
+
 export const INGREDIENTS = ['Alface', 'Tomate', 'Bacon', 'Barbecue', 'Queijo muçarela'];
 export const COMBO_PRICE = 25;
 
@@ -59,7 +71,6 @@ export function setKitchenStatus(order, kitchenStatus) {
 }
 
 if (typeof document !== 'undefined') {
-  const STOCK_LIMIT = 150;
   const state = {
     screen: 'home',
     quantity: 1,
@@ -70,13 +81,14 @@ if (typeof document !== 'undefined') {
     activeOrder: null,
     teamAuthorized: false,
     teamSearch: '',
+    sale: { stock_total: 150, reserved_quantity: 0, confirmed_quantity: 0 },
   };
 
   const app = document.querySelector('#app');
+  const supabase = createPibgClient();
   const money = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
-  const availableStock = () => Math.max(STOCK_LIMIT - state.orders.reduce((total, order) => total + order.combos.length, 0), 0);
-  const orderCode = () => `PIBG-${String(state.orders.length + 1).padStart(4, '0')}`;
+  const availableStock = () => Math.max(state.sale.stock_total - state.sale.reserved_quantity - state.sale.confirmed_quantity, 0);
 
   function comboDescription(combo) {
     const parts = [];
@@ -95,7 +107,7 @@ if (typeof document !== 'undefined') {
       <div class="hero-image"><div class="hero-topline"><span class="pill"><i class="live-dot"></i>VENDA DE DOMINGO</span><span class="pill">ESTOQUE AO VIVO</span></div><div class="hero-caption"><p>COMBO ARTESANAL</p><h1>FOME DE<br>VERDADE.<small>COMPRA SEM FILA.</small></h1></div></div>
       <div class="content"><div class="product-copy"><div><h2>O combo que salva seu domingo.</h2><p>Bife caseiro de 140 g, alface, tomate, bacon, barbecue, muçarela e refrigerante de 200 ml.</p></div><div class="price">R$ 25</div></div>
       <div class="ingredient-tags"><span>140 g</span><span>Bacon crocante</span><span>Muçarela</span><span>Refri 200 ml</span></div>
-      <div class="stock-note"><strong>${availableStock()} combos disponíveis</strong><small>Valor demonstrativo no protótipo</small></div>
+      <div class="stock-note"><strong>${availableStock()} combos disponíveis</strong><small>Estoque atualizado em tempo real</small></div>
       <span class="section-label">QUANTOS COMBOS VOCÊ QUER?</span><div class="quantity"><button data-action="quantity" data-delta="-1" aria-label="Diminuir quantidade">−</button><output>${state.quantity}</output><button data-action="quantity" data-delta="1" aria-label="Aumentar quantidade">+</button></div></div>
       ${actionBar(`${state.quantity} ${state.quantity === 1 ? 'COMBO' : 'COMBOS'} · MONTE DO SEU JEITO`, state.quantity * COMBO_PRICE, 'start-order', 'Montar pedido')}
     </section></div>`;
@@ -127,18 +139,18 @@ if (typeof document !== 'undefined') {
 
   function renderConfirmation() {
     const order = state.activeOrder;
-    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está reservado. Ao final do culto, mostre este código para a equipe.</p><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'open-team', 'Painel da equipe')}</section></div>`;
+    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido<br>confirmado!</h1><p>${escapeHtml(order.customer.name)}, seu pedido está confirmado. Ao final do culto, mostre este código para a equipe.</p><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span></div><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button><p>Você também pode procurar pelo celular cadastrado: ${escapeHtml(order.customer.phone)}.</p></div>${actionBar('COMPRA CONFIRMADA', calculateTotal(order.combos), 'open-team', 'Painel da equipe')}</section></div>`;
   }
 
   function renderTeamLogin() {
-    return `<div class="app-shell"><section class="page"><header class="team-top"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><h1>Painel<br>da equipe.</h1><p>Acesso de demonstração para os voluntários.</p></header><div class="team-card"><form id="team-login"><label class="field"><span>SENHA DA EQUIPE</span><input id="team-password" type="password" placeholder="Digite a senha"></label><p class="error" id="team-error" hidden></p><button class="primary-button" type="submit">Entrar no painel</button></form><p class="step-intro">No protótipo, use a senha <strong>domingo</strong>.</p></div></section></div>`;
+    return `<div class="app-shell"><section class="page"><header class="team-top"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><h1>Painel<br>da equipe.</h1><p>Acesso exclusivo para voluntários autorizados.</p></header><div class="team-card"><form id="team-login"><label class="field"><span>E-MAIL DA EQUIPE</span><input id="team-email" type="email" autocomplete="email" placeholder="voluntario@igreja.com"></label><label class="field"><span>SENHA DA EQUIPE</span><input id="team-password" type="password" autocomplete="current-password" placeholder="Digite a senha"></label><p class="error" id="team-error" hidden></p><button class="primary-button" type="submit">Entrar no painel</button></form><p class="step-intro">Use o e-mail e a senha liberados pelo administrador.</p></div></section></div>`;
   }
 
   function renderTeam() {
     const normalizedSearch = state.teamSearch.trim().toLowerCase();
     const orders = state.orders.filter((order) => !normalizedSearch || `${order.code} ${order.customer.name} ${order.customer.phone}`.toLowerCase().includes(normalizedSearch));
-    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${order.combos.some((combo) => combo.mode === 'customized') || order.kitchenNote ? '<br>${escapeHtml(kitchenDetails(order))}' : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-code="${order.code}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
-    const sold = state.orders.reduce((total, order) => total + order.combos.length, 0);
+    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'}${order.combos.some((combo) => combo.mode === 'customized') || order.kitchenNote ? '<br>${escapeHtml(kitchenDetails(order))}' : ''}</span></div>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div>`).join('') : '<p class="step-intro">Nenhum pedido encontrado.</p>';
+    const sold = state.sale.confirmed_quantity;
     return `<div class="app-shell"><section class="page"><header class="team-top"><div class="header-actions"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><button class="kitchen-button" data-action="open-kitchen">Cozinha</button></div><h1>Painel<br>administrativo.</h1><p>Vendas on-line e presenciais no mesmo lugar.</p></header><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DETALHES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 2 completos e 1 sem tomate."></textarea><small>Opcional. Se ficar em branco, o pedido entra como combos completos.</small></label><button class="primary-button" type="submit">Registrar pagamento e pedido</button><p class="error" id="manual-error" hidden></p></form></div></section></div>`;
   }
 
@@ -149,7 +161,7 @@ if (typeof document !== 'undefined') {
       ready: { label: 'Voltar para a chapa', next: 'grill' },
     };
     const action = actions[status];
-    return `<article class="kitchen-order"><span class="kitchen-code">${order.code}</span><h3>${escapeHtml(order.customer.name)}</h3><p class="kitchen-count">${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'}</p><p class="kitchen-details">${escapeHtml(kitchenDetails(order))}</p><button class="kitchen-action" data-action="set-kitchen-status" data-code="${order.code}" data-status="${action.next}">${action.label}</button></article>`;
+    return `<article class="kitchen-order"><span class="kitchen-code">${order.code}</span><h3>${escapeHtml(order.customer.name)}</h3><p class="kitchen-count">${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'}</p><p class="kitchen-details">${escapeHtml(kitchenDetails(order))}</p><button class="kitchen-action" data-action="set-kitchen-status" data-id="${order.id}" data-status="${action.next}">${action.label}</button></article>`;
   }
 
   function renderKitchen() {
@@ -187,7 +199,9 @@ if (typeof document !== 'undefined') {
 
   function createActiveOrder() {
     state.activeOrder = {
-      code: orderCode(),
+      id: null,
+      accessToken: null,
+      code: null,
       customer: { ...state.customer },
       combos: state.combos.map((combo) => ({ ...combo, removed: [...combo.removed] })),
       withdrawn: false,
@@ -195,6 +209,34 @@ if (typeof document !== 'undefined') {
       kitchenStatus: 'new',
       kitchenNote: '',
     };
+  }
+
+  async function refreshSale(shouldRender = false) {
+    try {
+      state.sale = await fetchActiveSale(supabase);
+      if (shouldRender && ['home', 'team', 'kitchen'].includes(state.screen)) render();
+    } catch (error) {
+      console.error('Falha ao atualizar o estoque.', error);
+    }
+  }
+
+  async function refreshTeamOrders(shouldRender = false) {
+    if (!state.teamAuthorized) return;
+    try {
+      state.orders = await fetchTeamOrders(supabase);
+      if (shouldRender && ['team', 'kitchen'].includes(state.screen)) render();
+    } catch (error) {
+      state.teamAuthorized = false;
+      state.orders = [];
+      if (shouldRender) render();
+    }
+  }
+
+  function subscribeToChanges() {
+    supabase.channel('hamburguer-pibg-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_events' }, () => refreshSale(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => refreshTeamOrders(true))
+      .subscribe();
   }
 
   function downloadTicket(order) {
@@ -268,7 +310,7 @@ if (typeof document !== 'undefined') {
   }
 
   function bindEvents() {
-    app.querySelectorAll('[data-action]').forEach((element) => element.addEventListener('click', () => {
+    app.querySelectorAll('[data-action]').forEach((element) => element.addEventListener('click', async () => {
       const action = element.dataset.action;
       if (action === 'quantity') { state.quantity = Math.max(1, Math.min(10, state.quantity + Number(element.dataset.delta))); render(); }
       if (action === 'start-order') { goToCustomization(); render(); }
@@ -279,19 +321,83 @@ if (typeof document !== 'undefined') {
       if (action === 'mode') { const combo = state.combos[state.activeCombo]; state.combos[state.activeCombo] = element.dataset.mode === 'complete' ? { ...combo, mode: 'complete', removed: [], note: '' } : { ...combo, mode: 'customized' }; render(); }
       if (action === 'next-combo') { syncCurrentCombo(); state.activeCombo += 1; render(); }
       if (action === 'to-checkout') { syncCurrentCombo(); state.screen = 'checkout'; render(); }
-      if (action === 'to-pix') { const name = document.querySelector('#customer-name').value.trim(); const phone = document.querySelector('#customer-phone').value.trim(); const error = document.querySelector('#form-error'); if (!name || phone.replace(/\D/g, '').length < 10) { error.hidden = false; error.textContent = 'Informe seu nome e um celular válido para continuar.'; return; } state.customer = { name, phone }; createActiveOrder(); state.screen = 'pix'; render(); }
-      if (action === 'confirm-payment') { state.orders.push(state.activeOrder); state.screen = 'confirmation'; render(); }
+      if (action === 'to-pix') {
+        const name = document.querySelector('#customer-name').value.trim();
+        const phone = document.querySelector('#customer-phone').value.trim();
+        const error = document.querySelector('#form-error');
+        if (!name || phone.replace(/\D/g, '').length < 10) { error.hidden = false; error.textContent = 'Informe seu nome e um celular válido para continuar.'; return; }
+        state.customer = { name, phone };
+        createActiveOrder();
+        try {
+          const reservation = await reserveOrder(supabase, state.activeOrder);
+          state.activeOrder = { ...state.activeOrder, id: reservation.order_id, accessToken: reservation.access_token };
+          await refreshSale();
+          state.screen = 'pix';
+          render();
+        } catch (reservationError) {
+          error.hidden = false;
+          error.textContent = reservationError.message;
+        }
+      }
+      if (action === 'confirm-payment') {
+        try {
+          const confirmation = await confirmOrder(supabase, state.activeOrder.id, state.activeOrder.accessToken);
+          state.activeOrder = { ...state.activeOrder, code: confirmation.code };
+          await refreshSale();
+          state.screen = 'confirmation';
+          render();
+        } catch (confirmationError) {
+          window.alert(confirmationError.message);
+        }
+      }
       if (action === 'open-team') { state.screen = 'team'; render(); }
-      if (action === 'open-kitchen') { state.screen = 'kitchen'; render(); }
+      if (action === 'open-kitchen') { await refreshTeamOrders(); state.screen = 'kitchen'; render(); }
       if (action === 'download-ticket') { downloadTicket(state.activeOrder); }
-      if (action === 'withdraw') { state.orders = state.orders.map((order) => order.code === element.dataset.code ? markWithdrawn(order) : order); render(); }
-      if (action === 'set-kitchen-status') { state.orders = state.orders.map((order) => order.code === element.dataset.code ? setKitchenStatus(order, element.dataset.status) : order); render(); }
+      if (action === 'withdraw') {
+        try { await withdrawOrder(supabase, element.dataset.id); await Promise.all([refreshTeamOrders(), refreshSale()]); render(); } catch (withdrawError) { window.alert(withdrawError.message); }
+      }
+      if (action === 'set-kitchen-status') {
+        try { await updateKitchenStatus(supabase, element.dataset.id, element.dataset.status); await refreshTeamOrders(); render(); } catch (kitchenError) { window.alert(kitchenError.message); }
+      }
     }));
 
-    app.querySelector('#team-login')?.addEventListener('submit', (event) => { event.preventDefault(); const error = document.querySelector('#team-error'); if (document.querySelector('#team-password').value !== 'domingo') { error.hidden = false; error.textContent = 'Senha incorreta. No protótipo, use domingo.'; return; } state.teamAuthorized = true; render(); });
+    app.querySelector('#team-login')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const error = document.querySelector('#team-error');
+      const email = document.querySelector('#team-email').value.trim();
+      const password = document.querySelector('#team-password').value;
+      try {
+        await signInTeam(supabase, email, password);
+        state.orders = await fetchTeamOrders(supabase);
+        state.teamAuthorized = true;
+        state.screen = 'team';
+        render();
+      } catch (loginError) {
+        error.hidden = false;
+        error.textContent = 'E-mail, senha ou autorização da equipe inválidos.';
+      }
+    });
     app.querySelector('#order-search')?.addEventListener('input', (event) => { state.teamSearch = event.target.value; render(); document.querySelector('#order-search')?.focus(); });
-    app.querySelector('#manual-sale')?.addEventListener('submit', (event) => { event.preventDefault(); const name = document.querySelector('#manual-name').value.trim(); const phone = document.querySelector('#manual-phone').value.trim(); const quantity = Number(document.querySelector('#manual-quantity').value); const kitchenNote = document.querySelector('#manual-kitchen-note').value.trim(); const error = document.querySelector('#manual-error'); if (!name || phone.replace(/\D/g, '').length < 10 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) { error.hidden = false; error.textContent = 'Informe nome, celular válido e uma quantidade entre 1 e 10.'; return; } if (quantity > availableStock()) { error.hidden = false; error.textContent = 'Não há combos suficientes disponíveis para esta venda.'; return; } state.orders.push({ code: orderCode(), customer: { name, phone }, combos: Array.from({ length: quantity }, () => createCombo()), withdrawn: false, source: 'manual', kitchenStatus: 'new', kitchenNote }); render(); });
+    app.querySelector('#manual-sale')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const name = document.querySelector('#manual-name').value.trim();
+      const phone = document.querySelector('#manual-phone').value.trim();
+      const quantity = Number(document.querySelector('#manual-quantity').value);
+      const kitchenNote = document.querySelector('#manual-kitchen-note').value.trim();
+      const error = document.querySelector('#manual-error');
+      if (!name || phone.replace(/\D/g, '').length < 10 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) { error.hidden = false; error.textContent = 'Informe nome, celular válido e uma quantidade entre 1 e 10.'; return; }
+      try {
+        await createManualOrder(supabase, { customer: { name, phone }, combos: Array.from({ length: quantity }, () => createCombo()), kitchenNote });
+        await Promise.all([refreshTeamOrders(), refreshSale()]);
+        render();
+      } catch (manualError) {
+        error.hidden = false;
+        error.textContent = manualError.message;
+      }
+    });
   }
 
   render();
+  refreshSale(true);
+  subscribeToChanges();
 }

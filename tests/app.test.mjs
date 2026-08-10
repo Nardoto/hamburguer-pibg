@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { calculateTotal, createCombo, customizeCombo, markWithdrawn, ticketFilename, ticketLines, ticketHeader, kitchenDetails, setKitchenStatus } from '../app.js';
+import { orderFromDatabase, orderPayload, orderRpcPayload } from '../supabase-client.js';
 
 const completeCombo = createCombo();
 assert.equal(completeCombo.mode, 'complete');
@@ -26,5 +27,33 @@ assert.deepEqual(ticketLines({ ...orderForTicket, combos: [completeCombo] }), ['
 assert.equal(ticketHeader(orderForTicket), 'RETIRADA DE MARIA DA SILVA');
 assert.equal(kitchenDetails({ ...orderForTicket, kitchenNote: '2 completos e 1 sem tomate' }), '2 completos e 1 sem tomate');
 assert.equal(setKitchenStatus({ kitchenStatus: 'new' }, 'grill').kitchenStatus, 'grill');
+
+assert.deepEqual(orderPayload({
+  customer: { name: ' Ana ', phone: '(11) 99999-0000 ' },
+  combos: [{ removed: ['Tomate'], note: 'Cortar ao meio' }],
+}), {
+  customer_name: 'Ana',
+  customer_phone: '(11) 99999-0000',
+  items: [{ removed: ['Tomate'], note: 'Cortar ao meio' }],
+});
+
+assert.deepEqual(orderFromDatabase({
+  id: 'order-1', code: 'PIBG-0001', customer_name: 'Ana', customer_phone: '(11) 99999-0000',
+  source: 'manual', kitchen_status: 'grill', kitchen_note: '2 completos', withdrawn_at: null,
+  items: [{ removed: ['Tomate'], note: '' }],
+}), {
+  id: 'order-1', code: 'PIBG-0001', customer: { name: 'Ana', phone: '(11) 99999-0000' },
+  source: 'manual', kitchenStatus: 'grill', kitchenNote: '2 completos', withdrawn: false,
+  combos: [{ mode: 'customized', removed: ['Tomate'], note: '' }],
+});
+
+assert.deepEqual(orderRpcPayload({
+  customer: { name: 'Ana', phone: '(11) 99999-0000' },
+  combos: [{ removed: [], note: '' }],
+}), {
+  p_customer_name: 'Ana',
+  p_customer_phone: '(11) 99999-0000',
+  p_items: [{ removed: [], note: '' }],
+});
 
 console.log('Todos os testes do pedido passaram.');
