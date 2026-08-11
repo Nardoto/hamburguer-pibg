@@ -31,7 +31,7 @@ export function createCombo() {
   };
 }
 
-export function customizeCombo(combo, removed, note) {
+export function customizeCombo(combo, removed, note = '') {
   const normalizedRemoved = [...new Set(removed)].filter((ingredient) => INGREDIENTS.includes(ingredient));
   return {
     ...combo,
@@ -83,6 +83,19 @@ export function kitchenDetails(order) {
   if (order.kitchenNote?.trim()) return order.kitchenNote.trim();
   const adjustedCombos = ticketLines(order).filter((line) => !line.endsWith(': Completo'));
   return adjustedCombos.length ? adjustedCombos.join(' | ') : `${order.combos.length} ${order.combos.length === 1 ? 'combo completo' : 'combos completos'}`;
+}
+
+export function kitchenSummary(order) {
+  const groups = new Map();
+  (order.combos ?? []).forEach((combo) => {
+    const removed = (combo.removed ?? []).map((ingredient) => ingredient === 'Queijo muçarela' ? 'queijo' : ingredient.toLowerCase());
+    const base = removed.length ? `sem ${removed.join(', ')}` : 'completo';
+    const label = combo.note?.trim() ? `${base} · ${combo.note.trim()}` : base;
+    groups.set(label, (groups.get(label) ?? 0) + 1);
+  });
+  const summary = [...groups.entries()].map(([label, count]) => `${count} ${count > 1 && label === 'completo' ? 'completos' : label}`);
+  if (order.kitchenNote?.trim()) summary.push(`Obs.: ${order.kitchenNote.trim()}`);
+  return summary.join(' · ');
 }
 
 export function hasKitchenAdjustment(order) {
@@ -302,8 +315,8 @@ if (typeof document !== 'undefined') {
 
   function renderKitchenOrder(order) {
     const separated = order.kitchenStatus === 'ready';
-    const adjustments = kitchenDetails(order).split(' | ').map((detail) => `<span>${escapeHtml(detail.replace(/^Combo \d+: /, ''))}</span>`).join('');
-    return `<article class="kitchen-order ${separated ? 'separated' : ''}"><div class="kitchen-order-top"><strong>${shortOrderNumber(order.code)}</strong><div><h3>${escapeHtml(order.customer.name)}</h3><p class="kitchen-count">${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'hambúrguer' : 'hambúrgueres'} · ${serviceModeLabel(order.serviceMode)}</p></div></div><div class="kitchen-details">${adjustments}</div><button class="kitchen-action" data-action="set-kitchen-status" data-id="${order.id}" data-status="${separated ? 'new' : 'ready'}">${separated ? 'Voltar para ajustes' : 'Marcar como separado'}</button></article>`;
+    const summary = kitchenSummary(order).split(' · ').map((detail) => `<span class="${detail.includes('completo') ? 'complete' : ''}">${escapeHtml(detail)}</span>`).join('');
+    return `<article class="kitchen-order ${separated ? 'separated' : ''}"><div class="kitchen-order-top"><strong>${shortOrderNumber(order.code)}</strong><div><h3>${escapeHtml(order.customer.name)}</h3><p class="kitchen-count">Pedido ${shortOrderNumber(order.code)} · ${order.combos.length} ${order.combos.length === 1 ? 'hambúrguer' : 'hambúrgueres'} · ${serviceModeLabel(order.serviceMode)}</p></div></div><div class="kitchen-details kitchen-summary">${summary}</div><button class="kitchen-action" data-action="set-kitchen-status" data-id="${order.id}" data-status="${separated ? 'new' : 'ready'}">${separated ? 'Voltar para ajustes' : 'Marcar como separado'}</button></article>`;
   }
 
   function renderKitchen() {

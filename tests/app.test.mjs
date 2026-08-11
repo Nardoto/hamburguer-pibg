@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculateTotal, canCreateSunday, compactTicketLines, createCombo, customizeCombo, deliveryFeedback, filterOrdersByDelivery, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, paymentMethodLabel, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
+import { calculateTotal, canCreateSunday, compactTicketLines, createCombo, customizeCombo, deliveryFeedback, filterOrdersByDelivery, hasKitchenAdjustment, isAdminRole, kitchenSummary, lastPurchaseLabel, markWithdrawn, paymentMethodLabel, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -32,6 +32,7 @@ assert.deepEqual(compactTicketLines({ ...orderForTicket, serviceMode: 'takeaway'
 assert.equal(compactTicketLines({ ...orderForTicket, combos: Array.from({ length: 5 }, () => customizedCombo), serviceMode: 'local' }).length, 5);
 assert.equal(ticketHeader(orderForTicket), 'RETIRADA DE MARIA DA SILVA');
 assert.equal(kitchenDetails({ ...orderForTicket, kitchenNote: '2 completos e 1 sem tomate' }), '2 completos e 1 sem tomate');
+assert.equal(kitchenSummary({ combos: [completeCombo, completeCombo, customizeCombo(completeCombo, ['Alface']), customizeCombo(completeCombo, ['Queijo muçarela'])], kitchenNote: '' }), '2 completos · 1 sem alface · 1 sem queijo');
 assert.equal(setKitchenStatus({ kitchenStatus: 'new' }, 'grill').kitchenStatus, 'grill');
 assert.equal(shortOrderNumber('PIBG-0025'), '025');
 assert.equal(shortOrderNumber('PIBG-1000'), '1000');
