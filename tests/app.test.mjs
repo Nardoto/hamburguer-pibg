@@ -64,6 +64,8 @@ assert.equal(appSource.includes('data-manual-combo'), true);
 assert.equal(appSource.includes('Retirar itens'), true);
 assert.equal(appSource.includes("format: 'a6'"), true);
 assert.equal(appSource.includes("pdf.addImage(qrDataUrl, 'PNG'"), true);
+assert.equal(appSource.includes("imageDataUrl('./assets/logo-white.png')"), true);
+assert.equal(appSource.includes("pdf.addImage(logoDataUrl, 'PNG'"), true);
 
 const stylesSource = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 assert.equal(stylesSource.includes('.manual-removals[hidden] { display: none; }'), true);

@@ -456,7 +456,23 @@ if (typeof document !== 'undefined') {
     }
   }
 
-  function downloadTicket(order) {
+  async function imageDataUrl(path) {
+    try {
+      const response = await fetch(path);
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      return await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  async function downloadTicket(order) {
     const JsPdf = window.jspdf?.jsPDF;
     if (!JsPdf) {
       window.alert('Não foi possível preparar o PDF agora. Tente novamente em alguns instantes.');
@@ -476,8 +492,10 @@ if (typeof document !== 'undefined') {
     }
     const pdf = new JsPdf({ orientation: 'portrait', unit: 'mm', format: 'a6' });
     const pageWidth = pdf.internal.pageSize.getWidth();
+    const logoDataUrl = await imageDataUrl('./assets/logo-white.png');
     pdf.setFillColor(26, 17, 14);
     pdf.rect(0, 0, pageWidth, 26, 'F');
+    if (logoDataUrl) pdf.addImage(logoDataUrl, 'PNG', 76, 5, 20, 12);
     pdf.setTextColor(255, 194, 71);
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(17);
@@ -603,7 +621,7 @@ if (typeof document !== 'undefined') {
       }
       if (action === 'start-scan') { state.deliveryNotice = null; state.scanning = true; render(); await startQrScanner(); }
       if (action === 'stop-scan') { stopQrScanner(); render(); }
-      if (action === 'download-ticket') { downloadTicket(state.activeOrder); }
+      if (action === 'download-ticket') { await downloadTicket(state.activeOrder); }
       if (action === 'withdraw') {
         try { await withdrawOrder(supabase, element.dataset.id); await Promise.all([refreshTeamOrders(), refreshSale()]); render(); } catch (withdrawError) { window.alert(withdrawError.message); }
       }
