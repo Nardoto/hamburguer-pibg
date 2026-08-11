@@ -62,6 +62,15 @@ export function ticketLines(order) {
   });
 }
 
+export function compactTicketLines(order) {
+  const count = order.combos.length;
+  const summary = `${count} ${count === 1 ? 'combo' : 'combos'} · ${serviceModeLabel(order.serviceMode)}`;
+  const adjustments = ticketLines(order).filter((line) => !line.endsWith(': Completo'));
+  const visibleAdjustments = adjustments.slice(0, 3);
+  const remaining = adjustments.length - visibleAdjustments.length;
+  return [summary, ...visibleAdjustments, ...(remaining ? [`+ ${remaining} ajustes no pedido`] : [])];
+}
+
 export function ticketHeader(order) {
   return `RETIRADA DE ${order.customer.name.trim().toUpperCase()}`;
 }
@@ -453,71 +462,76 @@ if (typeof document !== 'undefined') {
       window.alert('Não foi possível preparar o PDF agora. Tente novamente em alguns instantes.');
       return;
     }
-    const pdf = new JsPdf({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+    const qrHolder = document.createElement('div');
+    let qrDataUrl = null;
+    try {
+      if (window.QRCode) {
+        qrHolder.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:160px;height:160px;overflow:hidden';
+        document.body.append(qrHolder);
+        new window.QRCode(qrHolder, { text: order.code, width: 160, height: 160, colorDark: '#1a110e', colorLight: '#fffdf9', correctLevel: window.QRCode.CorrectLevel.M });
+        qrDataUrl = qrHolder.querySelector('canvas')?.toDataURL('image/png') ?? qrHolder.querySelector('img')?.src ?? null;
+      }
+    } finally {
+      qrHolder.remove();
+    }
+    const pdf = new JsPdf({ orientation: 'portrait', unit: 'mm', format: 'a6' });
     const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
     pdf.setFillColor(26, 17, 14);
-    pdf.rect(0, 0, pageWidth, 44, 'F');
+    pdf.rect(0, 0, pageWidth, 26, 'F');
     pdf.setTextColor(255, 194, 71);
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(25);
-    pdf.text('HAMBURGUER PIBG', 15, 19);
+    pdf.setFontSize(17);
+    pdf.text('HAMBURGUER PIBG', 10, 13);
     pdf.setTextColor(255, 244, 221);
-    pdf.setFontSize(10);
-    pdf.text('COMPROVANTE DE RETIRADA', 15, 30);
-    pdf.setFillColor(255, 244, 221);
-    pdf.roundedRect(15, 53, pageWidth - 30, 27, 4, 4, 'F');
+    pdf.setFontSize(7);
+    pdf.text('COMPROVANTE DE RETIRADA', 10, 20);
     pdf.setTextColor(41, 23, 18);
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(8);
-    pdf.text('NOME PARA RETIRADA', 20, 62);
-    pdf.setFontSize(16);
-    pdf.text(ticketHeader(order).replace('RETIRADA DE ', ''), 20, 73);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.text(`Celular: ${order.customer.phone}`, 15, 88);
-    pdf.setTextColor(118, 80, 66);
-    pdf.setFontSize(8);
-    pdf.text(`Retirada: ${saleDateLabel(state.sale?.event_date)}`, 15, 94);
-    pdf.text(`Destino: ${serviceModeLabel(order.serviceMode)}`, 15, 100);
-    pdf.setFillColor(255, 194, 71);
-    pdf.roundedRect(15, 105, pageWidth - 30, 38, 4, 4, 'F');
-    pdf.setTextColor(41, 23, 18);
-    pdf.setFontSize(9);
-    pdf.text('CODIGO DE RETIRADA', pageWidth / 2, 117, { align: 'center' });
-    pdf.setFontSize(28);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(order.code, pageWidth / 2, 133, { align: 'center' });
-    pdf.setTextColor(41, 23, 18);
+    pdf.setFontSize(6.5);
+    pdf.text('NOME PARA RETIRADA', 10, 35);
     pdf.setFontSize(11);
-    pdf.text('DETALHES DO PEDIDO', 15, 159);
-    let y = 168;
-    ticketLines(order).forEach((line) => {
-      const lines = pdf.splitTextToSize(line, pageWidth - 30);
-      if (y + lines.length * 6 + 3 > pageHeight - 25) {
-        pdf.addPage();
-        pdf.setTextColor(41, 23, 18);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(11);
-        pdf.text('DETALHES DO PEDIDO — CONTINUAÇÃO', 15, 24);
-        y = 34;
-      }
-      pdf.text(lines, 15, y);
-      y += lines.length * 6 + 3;
-    });
-    if (y + 38 > pageHeight - 15) {
-      pdf.addPage();
-      y = 24;
-    }
-    pdf.setDrawColor(229, 201, 158);
-    pdf.line(15, y + 4, pageWidth - 15, y + 4);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(13);
-    pdf.text(`Total: ${money(calculateTotal(order.combos))}`, 15, y + 16);
+    pdf.text(ticketHeader(order).replace('RETIRADA DE ', '').slice(0, 40), 10, 42);
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
+    pdf.setFontSize(7.5);
+    pdf.text(`Celular: ${order.customer.phone}`, 10, 49);
     pdf.setTextColor(118, 80, 66);
-    pdf.text('Apresente este comprovante no celular para retirar seu pedido ao final do culto.', 15, y + 29, { maxWidth: pageWidth - 30 });
+    pdf.setFontSize(6.5);
+    pdf.text(`Retirada: ${saleDateLabel(state.sale?.event_date)}`, 10, 54);
+    pdf.setFillColor(255, 194, 71);
+    pdf.roundedRect(10, 61, 55, 29, 3, 3, 'F');
+    pdf.setTextColor(41, 23, 18);
+    pdf.setFontSize(6.5);
+    pdf.text('CODIGO DE RETIRADA', 37.5, 70, { align: 'center' });
+    pdf.setFontSize(21);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(order.code, 37.5, 81, { align: 'center' });
+    pdf.setFontSize(7);
+    pdf.text(serviceModeLabel(order.serviceMode), 37.5, 86, { align: 'center' });
+    if (qrDataUrl) pdf.addImage(qrDataUrl, 'PNG', 70, 61, 25, 25);
+    pdf.setTextColor(118, 80, 66);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(5.8);
+    pdf.text(qrDataUrl ? 'Apresente o QR Code na retirada' : 'Apresente o código na retirada', 82.5, 90, { align: 'center' });
+    pdf.setTextColor(41, 23, 18);
+    pdf.setFontSize(8);
+    pdf.text('PEDIDO', 10, 102);
+    let y = 108;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(6.8);
+    compactTicketLines(order).slice(0, 4).forEach((line) => {
+      const lines = pdf.splitTextToSize(line, pageWidth - 20);
+      pdf.text(lines, 10, y);
+      y += lines.length * 3.7 + 2.2;
+    });
+    pdf.setDrawColor(229, 201, 158);
+    pdf.line(10, y + 3, pageWidth - 10, y + 3);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.text(`Total: ${money(calculateTotal(order.combos))}`, 10, y + 12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(6);
+    pdf.setTextColor(118, 80, 66);
+    pdf.text('Mostre este comprovante no celular ao retirar.', 10, y + 20);
     pdf.save(ticketFilename(order));
   }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculateTotal, canCreateSunday, createCombo, customizeCombo, deliveryFeedback, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
+import { calculateTotal, canCreateSunday, compactTicketLines, createCombo, customizeCombo, deliveryFeedback, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -25,6 +25,9 @@ const orderForTicket = {
 assert.equal(ticketFilename(orderForTicket), 'comprovante-hamburguer-pibg-PIBG-0001.pdf');
 assert.deepEqual(ticketLines(orderForTicket), ['Combo 1: Sem Tomate, Bacon · Cortar ao meio']);
 assert.deepEqual(ticketLines({ ...orderForTicket, combos: [completeCombo] }), ['Combo 1: Completo']);
+assert.deepEqual(compactTicketLines({ ...orderForTicket, combos: [completeCombo, completeCombo], serviceMode: 'local' }), ['2 combos · Comer no local']);
+assert.deepEqual(compactTicketLines({ ...orderForTicket, serviceMode: 'takeaway' }), ['1 combo · Para viagem', 'Combo 1: Sem Tomate, Bacon · Cortar ao meio']);
+assert.equal(compactTicketLines({ ...orderForTicket, combos: Array.from({ length: 5 }, () => customizedCombo), serviceMode: 'local' }).length, 5);
 assert.equal(ticketHeader(orderForTicket), 'RETIRADA DE MARIA DA SILVA');
 assert.equal(kitchenDetails({ ...orderForTicket, kitchenNote: '2 completos e 1 sem tomate' }), '2 completos e 1 sem tomate');
 assert.equal(setKitchenStatus({ kitchenStatus: 'new' }, 'grill').kitchenStatus, 'grill');
@@ -59,6 +62,8 @@ assert.equal(appSource.includes('class="stock-success"'), true);
 assert.equal(appSource.includes('Quantidade salva:'), true);
 assert.equal(appSource.includes('data-manual-combo'), true);
 assert.equal(appSource.includes('Retirar itens'), true);
+assert.equal(appSource.includes("format: 'a6'"), true);
+assert.equal(appSource.includes("pdf.addImage(qrDataUrl, 'PNG'"), true);
 
 const stylesSource = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 assert.equal(stylesSource.includes('.manual-removals[hidden] { display: none; }'), true);
