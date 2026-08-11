@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculateTotal, canCreateSunday, compactTicketLines, createCombo, customizeCombo, deliveryFeedback, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
+import { calculateTotal, canCreateSunday, compactTicketLines, createCombo, customizeCombo, deliveryFeedback, filterOrdersByDelivery, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -16,6 +16,8 @@ assert.equal(customizedCombo.note, 'Cortar ao meio');
 assert.equal(calculateTotal([customizedCombo]), 25);
 
 assert.equal(markWithdrawn({ withdrawn: false }).withdrawn, true);
+assert.deepEqual(filterOrdersByDelivery([{ withdrawn: false }, { withdrawn: true }], false), [{ withdrawn: false }]);
+assert.deepEqual(filterOrdersByDelivery([{ withdrawn: false }, { withdrawn: true }], true), [{ withdrawn: true }]);
 
 const orderForTicket = {
   code: 'PIBG-0001',
@@ -66,6 +68,7 @@ assert.equal(appSource.includes("format: 'a6'"), true);
 assert.equal(appSource.includes("pdf.addImage(qrDataUrl, 'PNG'"), true);
 assert.equal(appSource.includes("imageDataUrl('./assets/logo-white.png')"), true);
 assert.equal(appSource.includes("pdf.addImage(logoDataUrl, 'PNG'"), true);
+assert.equal(appSource.includes('data-action="order-list"'), true);
 
 const stylesSource = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 assert.equal(stylesSource.includes('.manual-removals[hidden] { display: none; }'), true);
