@@ -30,6 +30,7 @@ export function orderFromDatabase(row) {
     customer: { name: row.customer_name, phone: row.customer_phone },
     source: row.source,
     serviceMode: row.service_mode === 'takeaway' ? 'takeaway' : 'local',
+    paymentMethod: ['pix', 'cash', 'card'].includes(row.payment_method) ? row.payment_method : 'pix',
     kitchenStatus: row.kitchen_status,
     kitchenNote: row.kitchen_note,
     withdrawn: Boolean(row.withdrawn_at),
@@ -120,6 +121,7 @@ export async function createManualOrder(client, order) {
   const { data, error } = await client.rpc('create_manual_order', {
     ...orderRpcPayload(order),
     p_kitchen_note: order.kitchenNote?.trim() ?? '',
+    p_payment_method: order.paymentMethod ?? 'pix',
   });
   if (error) throw operationError(error, 'Não foi possível registrar a venda presencial.');
   return data?.[0];

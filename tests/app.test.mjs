@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculateTotal, canCreateSunday, compactTicketLines, createCombo, customizeCombo, deliveryFeedback, filterOrdersByDelivery, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
+import { calculateTotal, canCreateSunday, compactTicketLines, createCombo, customizeCombo, deliveryFeedback, filterOrdersByDelivery, hasKitchenAdjustment, isAdminRole, lastPurchaseLabel, markWithdrawn, paymentMethodLabel, saleDateLabel, saleUrl, shortOrderNumber, teamTabLabel, ticketFilename, ticketLines, ticketHeader, kitchenDetails, serviceModeLabel, setKitchenStatus } from '../app.js';
 import { orderFromDatabase, orderPayload, orderRpcPayload, recoveryOrderFromDatabase } from '../supabase-client.js';
 
 const completeCombo = createCombo();
@@ -48,7 +48,9 @@ assert.equal(canCreateSunday(null), true);
 assert.equal(canCreateSunday({ id: 'domingo-atual' }), false);
 assert.equal(serviceModeLabel('local'), 'Comer no local');
 assert.equal(serviceModeLabel('takeaway'), 'Para viagem');
-assert.equal(deliveryFeedback({ code: 'PIBG-0025', customer: { name: 'Ana' }, serviceMode: 'takeaway' }), 'PIBG-0025 entregue · Ana · Para viagem');
+assert.equal(paymentMethodLabel('cash'), 'Dinheiro');
+assert.equal(paymentMethodLabel('card'), 'Cartão');
+assert.equal(deliveryFeedback({ code: 'PIBG-0025', customer: { name: 'Ana' }, serviceMode: 'takeaway' }), '025 entregue · Ana · Para viagem');
 assert.equal(teamTabLabel('orders'), 'Pedidos');
 assert.equal(teamTabLabel('sales'), 'Vender');
 assert.equal(lastPurchaseLabel(null, new Date('2026-08-10T12:00:00Z')), 'Seja o primeiro a comprar');
@@ -69,6 +71,8 @@ assert.equal(appSource.includes("pdf.addImage(qrDataUrl, 'PNG'"), true);
 assert.equal(appSource.includes("imageDataUrl('./assets/logo-white.png')"), true);
 assert.equal(appSource.includes("pdf.addImage(logoDataUrl, 'PNG'"), true);
 assert.equal(appSource.includes('data-action="order-list"'), true);
+assert.equal(appSource.includes('id="manual-payment-method"'), true);
+assert.equal(appSource.includes('shortOrderNumber(order.code)'), true);
 
 const stylesSource = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 assert.equal(stylesSource.includes('.manual-removals[hidden] { display: none; }'), true);
@@ -89,7 +93,7 @@ assert.deepEqual(orderFromDatabase({
   items: [{ removed: ['Tomate'], note: '' }],
 }), {
   id: 'order-1', code: 'PIBG-0001', customer: { name: 'Ana', phone: '(11) 99999-0000' },
-  source: 'manual', serviceMode: 'takeaway', kitchenStatus: 'grill', kitchenNote: '2 completos', withdrawn: false,
+  source: 'manual', serviceMode: 'takeaway', paymentMethod: 'pix', kitchenStatus: 'grill', kitchenNote: '2 completos', withdrawn: false,
   combos: [{ mode: 'customized', removed: ['Tomate'], note: '' }],
 });
 
@@ -97,7 +101,7 @@ assert.deepEqual(recoveryOrderFromDatabase({
   code: 'PIBG-0025', customer_name: 'Ana', customer_phone: '(11) 99999-0000',
   items: [{ removed: [], note: '' }, { removed: ['Queijo muçarela'], note: 'Bem passado' }],
 }), {
-  code: 'PIBG-0025', customer: { name: 'Ana', phone: '(11) 99999-0000' }, serviceMode: 'local',
+  code: 'PIBG-0025', customer: { name: 'Ana', phone: '(11) 99999-0000' }, serviceMode: 'local', paymentMethod: 'pix',
   source: 'online', kitchenStatus: 'new', kitchenNote: '', withdrawn: false,
   combos: [
     { mode: 'complete', removed: [], note: '' },

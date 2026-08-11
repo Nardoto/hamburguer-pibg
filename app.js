@@ -121,8 +121,12 @@ export function serviceModeLabel(serviceMode) {
   return serviceMode === 'takeaway' ? 'Para viagem' : 'Comer no local';
 }
 
+export function paymentMethodLabel(paymentMethod) {
+  return ({ pix: 'Pix', cash: 'Dinheiro', card: 'Cartão' })[paymentMethod] ?? 'Pix';
+}
+
 export function deliveryFeedback(order) {
-  return `${order.code} entregue · ${order.customer.name} · ${serviceModeLabel(order.serviceMode)}`;
+  return `${shortOrderNumber(order.code)} entregue · ${order.customer.name} · ${serviceModeLabel(order.serviceMode)}`;
 }
 
 export function teamTabLabel(tab) {
@@ -234,11 +238,11 @@ if (typeof document !== 'undefined') {
     const order = state.activeOrder;
     const returnTo = state.teamAuthorized ? 'open-team' : 'home';
     const returnLabel = state.teamAuthorized ? 'Voltar à recepção' : 'Voltar ao cardápio';
-    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido confirmado!</h1><p>${escapeHtml(order.customer.name)}, está tudo certo. Guarde seu comprovante agora e mostre o QR Code na retirada.</p><div class="pickup-date">RETIRADA · ${saleDateLabel(state.sale?.event_date).toUpperCase()}</div><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${order.code}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span><em>${serviceModeLabel(order.serviceMode)}</em></div><div class="pdf-callout confirmation-download"><b>COMPROVANTE DE RETIRADA</b><span>Baixe agora o PDF com seu nome, pedido e QR Code.</span><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>Mostre este QR Code à equipe no final do culto.</span></div><p class="recovery-hint">Se fechar esta tela, recupere o comprovante usando nome e celular.</p><button class="confirmation-return" data-action="${returnTo}">${returnLabel}</button></div></section></div>`;
+    return `<div class="app-shell"><section class="page"><div class="content confirmation"><div class="success-mark" role="img" aria-label="Pedido confirmado"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h1>Pedido confirmado!</h1><p>${escapeHtml(order.customer.name)}, está tudo certo. Guarde seu comprovante agora e mostre o QR Code na retirada.</p><div class="pickup-date">RETIRADA · ${saleDateLabel(state.sale?.event_date).toUpperCase()}</div><div class="pickup-ticket"><small>CÓDIGO DE RETIRADA</small><strong>${shortOrderNumber(order.code)}</strong><span>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</span><em>${serviceModeLabel(order.serviceMode)} · ${paymentMethodLabel(order.paymentMethod)}</em></div><div class="pdf-callout confirmation-download"><b>COMPROVANTE DE RETIRADA</b><span>Baixe agora o PDF com seu nome, pedido e QR Code.</span><button class="pdf-button" data-action="download-ticket">Baixar comprovante em PDF</button></div><div class="pickup-qr-card"><div id="pickup-qr" aria-label="QR Code do pedido ${escapeHtml(order.code)}"></div><span>Mostre este QR Code à equipe no final do culto.</span></div><p class="recovery-hint">Se fechar esta tela, recupere o comprovante usando nome e celular.</p><button class="confirmation-return" data-action="${returnTo}">${returnLabel}</button></div></section></div>`;
   }
 
   function renderRecovery() {
-    const results = state.recoveredOrders.length ? `<div class="recovery-results"><span class="section-label">PEDIDOS ENCONTRADOS</span><p>Escolha o pedido para mostrar novamente o QR Code e baixar o comprovante.</p>${state.recoveredOrders.map((order, index) => `<button class="recovered-order" data-action="open-recovered-ticket" data-index="${index}"><span><b>${escapeHtml(order.code)}</b><small>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</small></span><strong>Ver comprovante</strong></button>`).join('')}</div>` : `<form id="recover-ticket" novalidate><label class="field"><span>NOME COMPLETO DO PEDIDO</span><input id="recovery-name" autocomplete="name" placeholder="Nome usado na compra"></label><label class="field"><span>CELULAR CADASTRADO</span><input id="recovery-phone" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000"></label><p class="error" id="recovery-error" hidden></p><button class="primary-button recovery-submit" type="submit">Procurar meu comprovante</button></form>`;
+    const results = state.recoveredOrders.length ? `<div class="recovery-results"><span class="section-label">PEDIDOS ENCONTRADOS</span><p>Escolha o pedido para mostrar novamente o QR Code e baixar o comprovante.</p>${state.recoveredOrders.map((order, index) => `<button class="recovered-order" data-action="open-recovered-ticket" data-index="${index}"><span><b>${shortOrderNumber(order.code)}</b><small>${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${money(calculateTotal(order.combos))}</small></span><strong>Ver comprovante</strong></button>`).join('')}</div>` : `<form id="recover-ticket" novalidate><label class="field"><span>NOME COMPLETO DO PEDIDO</span><input id="recovery-name" autocomplete="name" placeholder="Nome usado na compra"></label><label class="field"><span>CELULAR CADASTRADO</span><input id="recovery-phone" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000"></label><p class="error" id="recovery-error" hidden></p><button class="primary-button recovery-submit" type="submit">Procurar meu comprovante</button></form>`;
     return `<div class="app-shell"><section class="page"><div class="content recovery-page"><div class="step-head"><button class="back-button" data-action="home" aria-label="Voltar ao cardápio"></button><h1 class="step-title">Esqueceu o<br>comprovante?</h1><p class="step-intro">Informe o mesmo nome e celular usados na compra. Mostraremos apenas seus pedidos confirmados deste domingo.</p></div>${results}</div></section></div>`;
   }
 
@@ -276,7 +280,7 @@ if (typeof document !== 'undefined') {
     const pendingOrders = filterOrdersByDelivery(matchingOrders, false);
     const deliveredOrders = filterOrdersByDelivery(matchingOrders, true);
     const orders = state.orderList === 'delivered' ? deliveredOrders : pendingOrders;
-    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${order.code} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'} · ${serviceModeLabel(order.serviceMode)}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div><div class="order-actions"><button class="ticket-button" data-action="show-ticket" data-id="${order.id}">Mostrar QR</button>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div></div>`).join('') : `<p class="step-intro">${state.orderList === 'delivered' ? 'Nenhum pedido entregue ainda.' : 'Nenhum pedido aguardando retirada.'}</p>`;
+    const rows = orders.length ? orders.map((order) => `<div class="order-row"><div><b>${escapeHtml(order.customer.name)}</b><span>${shortOrderNumber(order.code)} · ${order.combos.length} ${order.combos.length === 1 ? 'combo' : 'combos'} · ${order.source === 'manual' ? 'presencial' : 'on-line'} · ${serviceModeLabel(order.serviceMode)} · ${paymentMethodLabel(order.paymentMethod)}${hasKitchenAdjustment(order) ? `<br>${escapeHtml(kitchenDetails(order))}` : ''}</span></div><div class="order-actions"><button class="ticket-button" data-action="show-ticket" data-id="${order.id}">Mostrar QR</button>${order.withdrawn ? '<span class="status withdrawn">RETIRADO</span>' : `<button class="secondary-button" data-action="withdraw" data-id="${order.id}">Entregar pedido</button>`}</div></div>`).join('') : `<p class="step-intro">${state.orderList === 'delivered' ? 'Nenhum pedido entregue ainda.' : 'Nenhum pedido aguardando retirada.'}</p>`;
     const sold = state.sale?.confirmed_quantity ?? 0;
     const scanner = state.scanning ? `<div class="scan-panel"><div id="qr-reader"></div><p>Aponte a câmera para o QR Code do comprovante.</p><button class="secondary-button" data-action="stop-scan">Cancelar leitura</button></div>` : '';
     const deliveryListTabs = `<nav class="delivery-tabs" aria-label="Situação dos pedidos"><button class="${state.orderList === 'pending' ? 'active' : ''}" data-action="order-list" data-list="pending">Para entregar <span>${pendingOrders.length}</span></button><button class="${state.orderList === 'delivered' ? 'active' : ''}" data-action="order-list" data-list="delivered">Entregues <span>${deliveredOrders.length}</span></button></nav>`;
@@ -288,7 +292,7 @@ if (typeof document !== 'undefined') {
     const adminSettings = isAdminRole(state.teamRole) ? `<div class="team-card admin-card"><span class="section-label">ADMINISTRAÇÃO DA VENDA</span>${activeAdmin}</div>` : '';
     const operations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span>${deliveryNotice}<button class="scan-button" data-action="start-scan">Ler QR Code e entregar</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label><span class="section-label">PEDIDOS CONFIRMADOS</span>${rows}</div><div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="1"></label><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><label class="field"><span>AJUSTES PARA A COZINHA</span><textarea id="manual-kitchen-note" placeholder="Ex.: 1 sem tomate e alface; os demais completos."></textarea><small>Preencha apenas se algum hambúrguer for diferente. Pedidos completos entram na leva padrão.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Crie um novo domingo na administração para liberar compra, recepção e cozinha.</p></div>`;
     const orderOperations = state.sale ? `<div class="team-card scanner-card"><span class="section-label">ENTREGA RÁPIDA</span>${deliveryNotice}<button class="scan-button" data-action="start-scan">Ler QR Code e entregar</button><form id="qr-search" class="qr-search"><input id="qr-code-input" value="${escapeHtml(state.teamSearch.startsWith('PIBG-') ? state.teamSearch : '')}" placeholder="Ou digite: PIBG-0025" autocapitalize="characters"><button class="secondary-button" type="submit">Buscar</button></form>${scanner}</div><div class="team-card"><div class="team-stats"><div class="stat"><b>${availableStock()}</b><span>DISPONÍVEIS</span></div><div class="stat"><b>${sold}</b><span>VENDIDOS</span></div></div></div><div class="team-card"><label class="field"><span>BUSCAR PEDIDO</span><input id="order-search" value="${escapeHtml(state.teamSearch)}" placeholder="Nome, celular ou código"></label>${deliveryListTabs}<span class="section-label">${state.orderList === 'delivered' ? 'PEDIDOS ENTREGUES' : 'PEDIDOS PARA ENTREGAR'}</span>${rows}</div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Abra a aba Configurações para criar a nova venda.</p></div>`;
-    const salesOperations = state.sale ? `<div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="${state.manualCombos.length}"><small>Escolha como preparar cada hambúrguer logo abaixo.</small></label><div id="manual-combo-builder" class="manual-combo-builder">${manualComboFields()}</div><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Abra a aba Configurações para criar a nova venda.</p></div>`;
+    const salesOperations = state.sale ? `<div class="team-card"><span class="section-label">NOVA VENDA PRESENCIAL</span><form id="manual-sale" class="team-form"><label class="field"><span>NOME</span><input id="manual-name" placeholder="Nome da pessoa"></label><label class="field"><span>CELULAR</span><input id="manual-phone" inputmode="tel" placeholder="(00) 00000-0000"></label><label class="field"><span>QUANTIDADE DE COMBOS</span><input id="manual-quantity" type="number" min="1" max="10" value="${state.manualCombos.length}"><small>Escolha como preparar cada hambúrguer logo abaixo.</small></label><div id="manual-combo-builder" class="manual-combo-builder">${manualComboFields()}</div><label class="field"><span>DESTINO DO PEDIDO</span><select id="manual-service-mode"><option value="local">Comer no local</option><option value="takeaway">Para viagem</option></select></label><label class="field"><span>FORMA DE PAGAMENTO</span><select id="manual-payment-method"><option value="pix">Pix</option><option value="cash">Dinheiro</option><option value="card">Cartão</option></select><small>Registre depois de confirmar o pagamento.</small></label><button class="primary-button" type="submit">Registrar venda presencial</button><p class="error" id="manual-error" hidden></p></form></div>` : `<div class="team-card empty-sale-card"><b>Nenhum domingo em andamento.</b><p>Abra a aba Configurações para criar a nova venda.</p></div>`;
     const teamTabs = `<nav class="team-tabs" aria-label="Seções da equipe"><button class="${state.teamTab === 'orders' ? 'active' : ''}" data-action="team-tab" data-tab="orders">Pedidos</button><button class="${state.teamTab === 'sales' ? 'active' : ''}" data-action="team-tab" data-tab="sales">Vender</button>${isAdminRole(state.teamRole) ? `<button class="${state.teamTab === 'settings' ? 'active' : ''}" data-action="team-tab" data-tab="settings">Configurações</button>` : ''}</nav>`;
     const selectedOperations = state.teamTab === 'sales' ? salesOperations : state.teamTab === 'settings' && isAdminRole(state.teamRole) ? adminSettings : orderOperations;
     const teamTitle = state.teamTab === 'sales' ? 'Venda<br>presencial.' : state.teamTab === 'settings' ? 'Configurações<br>da venda.' : 'Pedidos<br>e retirada.';
@@ -338,6 +342,7 @@ if (typeof document !== 'undefined') {
       code: null,
       customer: { ...state.customer },
       serviceMode: state.serviceMode,
+      paymentMethod: 'pix',
       combos: state.combos.map((combo) => ({ ...combo, removed: [...combo.removed] })),
       withdrawn: false,
       source: 'online',
@@ -504,62 +509,57 @@ if (typeof document !== 'undefined') {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const logoDataUrl = await imageDataUrl('./assets/logo-white.png');
     pdf.setFillColor(26, 17, 14);
-    pdf.rect(0, 0, pageWidth, 26, 'F');
-    if (logoDataUrl) pdf.addImage(logoDataUrl, 'PNG', 76, 5, 20, 12);
+    pdf.rect(0, 0, pageWidth, 17, 'F');
+    if (logoDataUrl) pdf.addImage(logoDataUrl, 'PNG', 84, 3, 12, 8);
     pdf.setTextColor(255, 194, 71);
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(17);
-    pdf.text('HAMBURGUER PIBG', 10, 13);
+    pdf.setFontSize(12);
+    pdf.text('HAMBURGUER PIBG', 10, 8);
     pdf.setTextColor(255, 244, 221);
-    pdf.setFontSize(7);
-    pdf.text('COMPROVANTE DE RETIRADA', 10, 20);
-    pdf.setTextColor(41, 23, 18);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(6.5);
-    pdf.text('NOME PARA RETIRADA', 10, 35);
-    pdf.setFontSize(11);
-    pdf.text(ticketHeader(order).replace('RETIRADA DE ', '').slice(0, 40), 10, 42);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(7.5);
-    pdf.text(`Celular: ${order.customer.phone}`, 10, 49);
-    pdf.setTextColor(118, 80, 66);
-    pdf.setFontSize(6.5);
-    pdf.text(`Retirada: ${saleDateLabel(state.sale?.event_date)}`, 10, 54);
+    pdf.setFontSize(5.4);
+    pdf.text('COMPROVANTE DE RETIRADA', 10, 13);
+    if (qrDataUrl) pdf.addImage(qrDataUrl, 'PNG', 10, 24, 36, 36);
     pdf.setFillColor(255, 194, 71);
-    pdf.roundedRect(10, 61, 55, 29, 3, 3, 'F');
+    pdf.roundedRect(10, 64, 36, 19, 2, 2, 'F');
     pdf.setTextColor(41, 23, 18);
-    pdf.setFontSize(6.5);
-    pdf.text('CODIGO DE RETIRADA', 37.5, 70, { align: 'center' });
-    pdf.setFontSize(21);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(order.code, 37.5, 81, { align: 'center' });
-    pdf.setFontSize(7);
-    pdf.text(serviceModeLabel(order.serviceMode), 37.5, 86, { align: 'center' });
-    if (qrDataUrl) pdf.addImage(qrDataUrl, 'PNG', 70, 61, 25, 25);
-    pdf.setTextColor(118, 80, 66);
+    pdf.setFontSize(5.2);
+    pdf.text('CODIGO DE RETIRADA', 28, 70, { align: 'center' });
+    pdf.setFontSize(18);
+    pdf.text(shortOrderNumber(order.code), 28, 79, { align: 'center' });
+    pdf.setFontSize(5.7);
+    pdf.text('NOME PARA RETIRADA', 52, 29);
+    pdf.setFontSize(10);
+    pdf.text(ticketHeader(order).replace('RETIRADA DE ', '').slice(0, 29), 52, 36);
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(5.8);
-    pdf.text(qrDataUrl ? 'Apresente o QR Code na retirada' : 'Apresente o código na retirada', 82.5, 90, { align: 'center' });
+    pdf.setFontSize(6.5);
+    pdf.text(`Celular: ${order.customer.phone}`, 52, 43);
+    pdf.setTextColor(118, 80, 66);
+    pdf.setFontSize(6);
+    pdf.text(`Retirada: ${saleDateLabel(state.sale?.event_date)}`, 52, 49);
+    pdf.text(`Pagamento: ${paymentMethodLabel(order.paymentMethod)}`, 52, 55);
+    pdf.text(`Destino: ${serviceModeLabel(order.serviceMode)}`, 52, 61);
+    pdf.text(qrDataUrl ? 'Mostre o QR Code na retirada.' : 'Mostre este código na retirada.', 52, 68, { maxWidth: 40 });
     pdf.setTextColor(41, 23, 18);
     pdf.setFontSize(8);
-    pdf.text('PEDIDO', 10, 102);
-    let y = 108;
+    pdf.text('PEDIDO', 10, 91);
+    let y = 97;
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(6.8);
-    compactTicketLines(order).slice(0, 4).forEach((line) => {
+    compactTicketLines(order).slice(0, 3).forEach((line) => {
       const lines = pdf.splitTextToSize(line, pageWidth - 20);
       pdf.text(lines, 10, y);
-      y += lines.length * 3.7 + 2.2;
+      y += lines.length * 3.4 + 1.8;
     });
     pdf.setDrawColor(229, 201, 158);
     pdf.line(10, y + 3, pageWidth - 10, y + 3);
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(11);
-    pdf.text(`Total: ${money(calculateTotal(order.combos))}`, 10, y + 12);
+    pdf.text(`Total: ${money(calculateTotal(order.combos))}`, 10, y + 10);
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(6);
     pdf.setTextColor(118, 80, 66);
-    pdf.text('Mostre este comprovante no celular ao retirar.', 10, y + 20);
+    pdf.text('Mostre este comprovante no celular ao retirar.', 10, y + 17);
     pdf.save(ticketFilename(order));
   }
 
@@ -703,14 +703,15 @@ if (typeof document !== 'undefined') {
       const phone = document.querySelector('#manual-phone').value.trim();
       const quantity = Number(document.querySelector('#manual-quantity').value);
       const serviceMode = document.querySelector('#manual-service-mode').value;
+      const paymentMethod = document.querySelector('#manual-payment-method').value;
       const error = document.querySelector('#manual-error');
-      if (!name || phone.replace(/\D/g, '').length < 10 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10 || !['local', 'takeaway'].includes(serviceMode)) { error.hidden = false; error.textContent = 'Informe nome, celular válido, destino e uma quantidade entre 1 e 10.'; return; }
+      if (!name || phone.replace(/\D/g, '').length < 10 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10 || !['local', 'takeaway'].includes(serviceMode) || !['pix', 'cash', 'card'].includes(paymentMethod)) { error.hidden = false; error.textContent = 'Informe nome, celular válido, destino, pagamento e uma quantidade entre 1 e 10.'; return; }
       const cards = [...app.querySelectorAll('[data-manual-combo]')];
       const incompleteCombo = cards.findIndex((card) => card.querySelector('[data-manual-mode]:checked')?.value === 'customized' && !card.querySelector('[data-manual-ingredient]:checked') && !card.querySelector('[data-manual-note]')?.value.trim());
       if (incompleteCombo >= 0) { error.hidden = false; error.textContent = `No Combo ${incompleteCombo + 1}, marque o que retirar ou escreva uma observação.`; return; }
       const combos = readManualComboDrafts();
       try {
-        const order = { customer: { name, phone }, serviceMode, combos, kitchenNote: '', source: 'manual', withdrawn: false, kitchenStatus: 'new' };
+        const order = { customer: { name, phone }, serviceMode, paymentMethod, combos, kitchenNote: '', source: 'manual', withdrawn: false, kitchenStatus: 'new' };
         const confirmation = await createManualOrder(supabase, order);
         state.activeOrder = { ...order, code: confirmation.code };
         state.manualCombos = Array.from({ length: quantity }, () => createCombo());
